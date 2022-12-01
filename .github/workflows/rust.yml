@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Submodules
+      run: |
+        git submodule update --init
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
