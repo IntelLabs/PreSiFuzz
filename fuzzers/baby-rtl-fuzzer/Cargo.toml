@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2022 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "baby-rtl-fuzzer"
+version = "0.0.1"
+authors = ["Nassim Corteggiani <nassim.corteggiani@intel.com>"]
+edition = "2021"
+
+[features]
+default = ["std"]
+tui = []
+std = []
+
+[dependencies]
+clap = { version = "3.2", features = ["default"] }
+libafl = { path = "../../dep/libafl/libafl" }
+libverdi = { path = "../../libverdi" }
+nix = "0.24"
+num-traits = { version = "0.2", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
+erased-serde = { version = "0.3.21", default-features = false, features = ["alloc"] } # erased serde
+ahash = { version = "0.7", default-features=false, features=["compile-time-rng"] } # The hash function already used in hashbrown
+intervaltree = { version = "0.2.7", default-features = false, features = ["serde"] }
+libc = "0.2"
+fs_extra = "1.2.0"

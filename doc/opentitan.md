@@ -1,0 +1,41 @@
+<!--
+SPDX-FileCopyrightText: 2022 Intel Corporation
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Fuzzing OpenTitan
+OpenTitan is an open-source silicon root-of-trust, please refer to [the official website](https://opentitan.org/) for more details.
+
+In the following, we explain how to start fuzzing OpenTitan AES IP using libAFL.
+To circumvent dependencies, the installation is packaged into a Dockerfile you can build and start using the following commands:
+```
+cd fuzzers/opentitan-fuzzer
+
+bash ./init.sh
+```
+
+If every steps went fine, you should now have a shell spawned into a docker container.
+If so, you can start fuzzing using the following commands:
+```
+cd fuzzers/opentitan-fuzzer
+
+bash ./run.sh
+```
+
+For every seed, the generated VCS files are saved in a dedicated folder whose name starts with 'backup_{id}', and where 'id' is a unique identifier. These directories contain the 'vdb' structures with coverage data. A merged report for all the 'vdb' can be generated using the following command:
+```
+urg $(find -maxdepth 2 -name "Coverage.vdb" -exec echo "-dir " {} \;) -format both -metric tgl -report urg_report
+```
+
+If you prefer getting a report per test:
+```
+find -maxdepth 2 -name "backup_*" -exec urg -dir {}/Coverage.vdb -format both -metric tgl -report urg_report_{} \;
+```
+
+# Credits
+
+This example replicates the work from [Timothy Tripple, et all](https://github.com/googleinterns/hw-fuzzing), except that we use vcs for simulating hardware.
+The seeds provided in the 'seeds' comes directly from [this repository](https://github.com/googleinterns/hw-fuzzing).
+
+The RTL code comes from the [OpenTitan team](https://opentitan.org/).

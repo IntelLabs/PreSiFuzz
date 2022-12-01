@@ -1,0 +1,10 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Pre-Silicon Hardware Fuzzing Toolkit
+Upstream-Contact: Nassim Corteggiani <nassim.corteggiani@intel.com>
+Source: https://github.com/IntelLabs/PreSiFuzz/
+
+# Sample paragraph, commented out:
+#
+# Files: src/*
+# Copyright: $YEAR $NAME <$CONTACT>
+# License: ...
