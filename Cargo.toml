@@ -8,6 +8,11 @@ codegen-units = 1
 opt-level = 3
 debug = true
 
+[profile.runner]
+inherits = "release"
+debug = true
+out_dir = "custom"
+
 [workspace]
 members = [
     "libverdi",

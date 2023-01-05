@@ -13,6 +13,11 @@ default = ["std"]
 tui = []
 std = []
 
+[profile.runner]
+inherits = "release"
+debug = true
+out_dir = "runner"
+
 [dependencies]
 clap = { version = "3.2", features = ["default"] }
 libafl = { path = "../../dep/libafl/libafl" }

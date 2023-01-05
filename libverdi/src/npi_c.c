@@ -13,8 +13,12 @@
  * -------------------------------------------------------------------------------- */
 
 #include "stdio.h"
+#ifndef DUMMY_LIB
 #include "npi.h"
 #include "npi_cov.h"
+#else
+typedef void* npiCovHandle;
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +29,7 @@
 #include <sys/types.h>
 #include <string>
 #include <random>
-
+#include <ctime>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,7 +42,7 @@ extern "C" {
     unsigned type;
     unsigned size;
   }CoverageMap;
-  
+
   void dump_instance_coverage( npiCovHandle scope, npiCovHandle test, CoverageMap* cov_map);
   npiCovHandle vdb_cov_init(const char* vdb_file_path);
   void vdb_cov_end(npiCovHandle db);
@@ -46,7 +50,9 @@ extern "C" {
   unsigned update_cov_map(npiCovHandle db, char* map, unsigned map_size, unsigned coverage_type);
 
   npiCovHandle vdb_cov_init(const char* vdb_file_path) {
-
+#ifdef DUMMY_LIB
+    return 0;
+#else
     int argcv = 1;
     int& argc = argcv;
 
@@ -55,9 +61,9 @@ extern "C" {
     // We need to mimic the regular argv format to success with NPI init
     args[0]= (char*)"/usr/bin/fuzzv_cov\0";
     args[1]=NULL;
-    char **p_args=args; 
+    char **p_args=args;
     char**& argv = p_args;
-    
+
     npi_init(argc, argv);
 
     npiCovHandle db = npi_cov_open( vdb_file_path );
@@ -67,16 +73,23 @@ extern "C" {
     }
 
     return db;
+#endif
   }
 
   void vdb_cov_end(npiCovHandle db) {
-
+#ifdef DUMMY_LIB
+    return;
+#else
     npi_cov_close( db );
     npi_end();
+#endif
   }
 
   void dump_instance_coverage( npiCovHandle scope, npiCovHandle test, CoverageMap* cov_map)
   {
+#ifdef DUMMY_LIB
+    return;
+#else
     npiCovHandle inst_iter = npi_cov_iter_start( npiCovInstance, scope );
     npiCovHandle inst = NULL;
     while ( (inst = npi_cov_iter_next( inst_iter )) )
@@ -87,10 +100,14 @@ extern "C" {
       dump_instance_coverage( inst, test, cov_map);
     }
     npi_cov_iter_stop( inst_iter );
+#endif
   }
 
   float compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map)
   {
+#ifdef DUMMY_LIB
+    return 0.0;
+#else
     int total_line = 0;
     int total_coverd = 0;
 
@@ -102,7 +119,7 @@ extern "C" {
       int covered =  npi_cov_get( npiCovCovered, block, test );
       total_line = total_line + npi_cov_get( npiCovCoverable, block, NULL );
       total_coverd = total_coverd + covered;
-        
+
       cov_map->map[cov_map->write_byte_index++] = covered;
     }
     npi_cov_iter_stop( iter );
@@ -111,10 +128,29 @@ extern "C" {
       return 0.0;
     else
       return ((float) total_coverd / (float)total_line) * 100;
+#endif
   }
 
   unsigned update_cov_map(npiCovHandle db, char* map, unsigned map_size, unsigned coverage_type) {
+#ifdef DUMMY_LIB
+    std::srand(std::time(nullptr));
 
+    // max 1/10 of map get coverage update
+    int start = std::rand() % map_size;
+    int end = ((std::rand() % map_size) + start) % map_size;
+
+    for(int i=start; i<end; i++) {
+        unsigned cov_dist = std::rand() % 100;
+        // non uniform distribution
+        // P=0.2 increases coverage
+        // P=0.7 do nothing
+        if( cov_dist < 20) {
+            map[i] = std::rand() % 0xFF;
+       }
+    }
+
+    return 0;
+#else
     CoverageMap cov_map;
     cov_map.map = map;
     cov_map.write_bit_index = 0;
@@ -148,7 +184,8 @@ extern "C" {
     npi_end();
 
     return 0;
-  } 
+#endif
+  }
 
 #ifdef __cplusplus
 }
@@ -157,7 +194,7 @@ extern "C" {
 
 #ifdef C_APP
 int main(int argc, char** argv) {
-  
+
   void* db = vdb_cov_init(argv[1]);
 
   unsigned size = 41678;
