@@ -52,12 +52,6 @@ pub fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::new("template_dir")
-                .help("The directory container daidi/csrs/vdb templates dir")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
             Arg::new("corpus")
                 .help("The directory to read initial inputs from ('seeds')")
                 .required(true)
@@ -127,8 +121,7 @@ pub fn main() {
     let map_size: usize = 42000;
 
     let outdir = res.value_of("outdir").unwrap().to_string();
-    let template_dir = res.value_of("template_dir").unwrap().to_string();
-    let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &outdir, &template_dir);
+    let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &outdir);
 
     // Create an observation channel to keep track of the execution time
     let time_observer = TimeObserver::new("time");

@@ -25,8 +25,10 @@ fusesoc run --build --target=tb_fuzz --tool=vcs secworks:crypto:sha256 --vcs_opt
 
 cargo build
 
-mkdir template
-cp -r build/secworks_crypto_sha256_0/tb_fuzz-vcs/* ./template
+mkdir output
+cp -r build/secworks_crypto_sha256_0/tb_fuzz-vcs/* ./output
+
+crg -dir ./output/Coverage.vdb -shared init
 
 export HW_HOME=$(pwd)
 

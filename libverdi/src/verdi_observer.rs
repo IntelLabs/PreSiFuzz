@@ -46,14 +46,13 @@ pub struct VerdiObserver {
     initial: u8,
     cnt: usize,
     map: Vec<u8>,
-    outdir: String,
-    template_dir: String,
+    outdir: String
 }
 
 impl VerdiObserver {
     /// Creates a new [`VerdiObserver`] with the given name.
     #[must_use]
-    pub fn new(name: &'static str, vdb: &String, size: usize, outdir: &String, template_dir: &String) -> Self {
+    pub fn new(name: &'static str, vdb: &String, size: usize, outdir: &String) -> Self {
         Self {
             name: name.to_string(),
             vdb: vdb.to_string(),
@@ -61,7 +60,6 @@ impl VerdiObserver {
             cnt: size,
             map: Vec::<u8>::with_capacity(size),
             outdir: outdir.to_string(),
-            template_dir: template_dir.to_string(),
         }
     }
 
@@ -81,25 +79,6 @@ impl VerdiObserver {
 
 impl<I, S> Observer<I, S> for VerdiObserver {
     fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
-
-        // before executing a new testcase, we need to clean-up the run directory
-        let do_steps = || -> Result<(), Error> {
-            std::fs::remove_dir_all(&self.outdir)?;
-            let mut options = fs_extra::dir::CopyOptions::new();
-            options.content_only = true;
-
-            fs::create_dir(&self.outdir)?;
-
-            let ret = copy(&self.template_dir, &self.outdir, &options);
-            if let Err(e) = ret { 
-                return Err(Error::illegal_state(format!("{:?}", e))) 
-            }
-            Ok(())
-        };
-
-        if let Err(_err) = do_steps() {
-            println!("VerdiObserver failed to init the output directory at this iteration... please check outdir argument");
-        }
 
         // let's clean the map
         let initial = self.initial;

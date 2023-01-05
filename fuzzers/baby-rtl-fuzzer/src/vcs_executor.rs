@@ -31,7 +31,7 @@ pub struct VCSExecutor
 impl CommandConfigurator for VCSExecutor
 { 
     fn spawn_child<I: Input + HasTargetBytes>(&mut self, input: &I) -> Result<Child, Error> {
-        
+
         let mut input_filename = self.outdir.clone();
         input_filename.push_str("/fuzz_input.hex");
 
@@ -57,10 +57,9 @@ impl CommandConfigurator for VCSExecutor
             .stderr(Stdio::piped());
 
         let child = command.spawn().expect("failed to start process");
-        println!("Execution done");
         
-        // let output = command.output().expect("failed to start process");
-        // println!("status: {}", String::from_utf8_lossy(&output.stdout));
+        let output = command.output().expect("failed to start process");
+        println!("status: {}", String::from_utf8_lossy(&output.stdout));
 
         // let ten_millis = time::Duration::from_millis(30000);
         // thread::sleep(ten_millis);
