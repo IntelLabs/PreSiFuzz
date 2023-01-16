@@ -28,8 +28,6 @@ typedef void* npiCovHandle;
 #include <unistd.h>
 #include <sys/types.h>
 #include <string>
-#include <random>
-#include <ctime>
 
 #ifdef __cplusplus
 extern "C" {
