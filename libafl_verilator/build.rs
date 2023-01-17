@@ -1,0 +1,10 @@
+// SPDX-FileCopyrightText: 2022 Intel Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
+use std::path::Path;
+use std::env;
+
+fn main() {
+}
+
