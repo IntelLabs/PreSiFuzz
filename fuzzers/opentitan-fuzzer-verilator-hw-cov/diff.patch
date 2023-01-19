@@ -1,0 +1,40 @@
+diff --git a/infra/base-afl/compile b/infra/base-afl/compile
+index 0b56d73..fd89683 100755
+--- a/infra/base-afl/compile
++++ b/infra/base-afl/compile
+@@ -130,7 +130,9 @@ make \
+   VLTRT_CXX=$VLTRT_CXX \
+   VLTRT_CXXFLAGS="$VLTRT_CXXFLAGS" \
+   LINK=$LINK \
+-  DISABLE_VCD_TRACING=1
++  DISABLE_VCD_TRACING=1 \
++  ENABLE_COVERAGE_TRACING=1 \
++  VM_COVERAGE=1
+ echo "Done!"
+ 
+ ################################################################################
+diff --git a/infra/base-sim/common.mk b/infra/base-sim/common.mk
+index b0b710a..65f2be0 100644
+--- a/infra/base-sim/common.mk
++++ b/infra/base-sim/common.mk
+@@ -71,7 +71,7 @@ VFLAGS += $(addprefix -I, $(HDL_INC_DIRS))
+ endif
+ 
+ ifdef ENABLE_COVERAGE_TRACING
+-VFLAGS += --coverage
++VFLAGS += --coverage-toggle
+ endif
+ 
+ ifndef DISABLE_VCD_TRACING
+diff --git a/infra/base-sim/tb/cpp/src/ot_ip_fuzz_tb.cpp b/infra/base-sim/tb/cpp/src/ot_ip_fuzz_tb.cpp
+index 4fdb285..5a468bc 100644
+--- a/infra/base-sim/tb/cpp/src/ot_ip_fuzz_tb.cpp
++++ b/infra/base-sim/tb/cpp/src/ot_ip_fuzz_tb.cpp
+@@ -221,6 +221,7 @@ void OTIPFuzzTb::SimulateDUT() {
+         }
+ 
+         default: {
++          std::cout << "(ignore)" << std::endl;
+           // Handles a kInvalid fuzz opcode
+           break;
+         }

@@ -30,9 +30,9 @@ use std::collections::HashSet;
 /// It decides, if the given [`TimeObserver`] value of a run is interesting.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VerilatorFeedback {
-    history: Vec<u32>,
+    history: Vec<usize>,
     name: String,
-    id: u32,
+    id: usize,
     outdir: String,
 }
 
@@ -62,7 +62,7 @@ where
         let o_map = observer.map();
 
         for (i, item) in o_map.iter().enumerate().take(capacity) {
-            if self.history[i] < *item {
+            if self.history[i] < (*item).try_into().unwrap() {
                 interesting = true; 
                 break;
             }
@@ -146,7 +146,7 @@ impl VerilatorFeedback {
     /// Creates a new [`VerilatorFeedback`], deciding if the given [`VerilatorObserver`] value of a run is interesting.
     #[must_use]
     pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {
-        let mut map = Vec::<u32>::with_capacity(capacity);
+        let mut map = Vec::<usize>::with_capacity(capacity);
         for _i in 0..capacity {
             map.push(0);
         }
