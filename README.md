@@ -62,3 +62,14 @@ The target directory contains examples of design to demonstrate the approach.
 
 * [OpenTitan](/doc/opentitan.md)
 
+
+# Known issues
+
+# Synopsys VERDI libNPI.so memory leakage
+PreSiFuzz uses VERDI libNPI.so to analyze the vdb structure after each
+simulation pass. This structure contains the coverage map used as feedback for
+fuzzing. However, libNPI.so leaks 1MB of memory after each call. Since
+PreSiFuzz calls this library after each simulation, the leakage quickly becomes
+huge. We get in touch with Synopsys support who was very reactive, and was able
+to fix the problem quickly. If you are concerned by this bug, we advise you to
+use VERDI 2023SP1 which should be released in March 2023.
