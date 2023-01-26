@@ -35,7 +35,7 @@ export HW_HOME=$(pwd)
 mkdir $HW_HOME/seeds/
 
 ./target/debug/baby-rtl-fuzzer $HW_HOME/output/secworks_crypto_sha256_0 \
-	$HW_HOME/template/ \
+	$HW_HOME/output/ \
 	$HW_HOME/seeds/ \
 	$HW_HOME/output/Coverage.vdb \
 	$HW_HOME/output/ "+TESTCASE=fuzz_input.hex -cm tgl"
