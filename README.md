@@ -65,7 +65,7 @@ The target directory contains examples of design to demonstrate the approach.
 
 # Known issues
 
-# Synopsys VERDI libNPI.so memory leakage
+## Synopsys VERDI libNPI.so memory leakage
 PreSiFuzz uses VERDI libNPI.so to analyze the vdb structure after each
 simulation pass. This structure contains the coverage map used as feedback for
 fuzzing. However, libNPI.so leaks 1MB of memory after each call. Since
