@@ -62,6 +62,11 @@ The target directory contains examples of design to demonstrate the approach.
 
 * [OpenTitan](/doc/opentitan.md)
 
+# Documentation
+
+## Libverdi
+* [LibVerdi](/doc/libverdi.md)
+
 
 # Known issues
 
