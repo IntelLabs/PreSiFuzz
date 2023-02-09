@@ -34,7 +34,6 @@ mkdir $HW_HOME/seeds/
 sudo ldconfig /usr/synopsys/verdi/R-2020.12-SP2-11-T-20220930/share/NPI/lib/LINUX64
 
 rm -rf backup_*
-rm -rf output
 
 
 ./target/debug/opentitan-fuzzer $HW_HOME/output/lowrisc_ip_aes_0.6 \
