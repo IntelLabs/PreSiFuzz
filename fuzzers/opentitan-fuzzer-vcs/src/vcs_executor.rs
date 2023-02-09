@@ -16,10 +16,11 @@ use libafl::{
     inputs::{HasTargetBytes, Input},
     Error,
 };
-use std::fs::File;
 use std::path::Path;
 use std::io::prelude::*;
-
+use std::fs::File;
+use std::io::{ self, BufRead, BufReader };
+//
 // Create the executor for an in-process function with just one observer
 #[derive(Debug)]
 pub struct VCSExecutor
@@ -67,8 +68,8 @@ impl CommandConfigurator for VCSExecutor
 
         let child = command.spawn().expect("failed to start process");
         // println!("Execution done");
-        
-        // let output = command.output().expect("failed to start process");
+
+        let output = command.output().expect("failed to start process");
         // println!("status: {}", String::from_utf8_lossy(&output.stdout));
 
         // let ten_millis = time::Duration::from_millis(30000);

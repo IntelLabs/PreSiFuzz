@@ -36,7 +36,8 @@ use libafl::{
 use libafl::executors::command::CommandConfigurator;
 
 use libverdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
-use libverdi::verdi_observer::VerdiObserver as VerdiObserver;
+use libverdi::verdi_observer::VerdiMapObserver as VerdiObserver;
+use libverdi::verdi_observer::VerdiCoverageMetric;
 
 mod vcs_executor;
 
@@ -121,7 +122,7 @@ pub fn main() {
     let map_size: usize = 42000;
 
     let outdir = res.value_of("outdir").unwrap().to_string();
-    let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &outdir);
+    let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &VerdiCoverageMetric::toggle);
 
     // Create an observation channel to keep track of the execution time
     let time_observer = TimeObserver::new("time");
@@ -131,7 +132,7 @@ pub fn main() {
     let outdir = res.value_of("outdir").unwrap().to_string();
     let mut feedback = feedback_or!(
         VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir),
-        TimeFeedback::new_with_observer(&time_observer)
+        TimeFeedback::with_observer(&time_observer)
     );
 
     // A feedback to choose if an input is a solution or not
@@ -180,7 +181,8 @@ pub fn main() {
 
     // let executable = res.value_of("executable").unwrap();
     let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut executor = vcs_executor::VCSExecutor { executable, args, outdir}.into_executor(tuple_list!(verdi_observer, time_observer));
+    // let mut executor = vcs_executor::VCSExecutor { executable, args, outdir}.into_executor(tuple_list!(verdi_observer, time_observer));
+    let mut executor = vcs_executor::VCSExecutor { executable, args, outdir}.into_executor(tuple_list!(verdi_observer));
 
     // Load initial inputs from corpus
     let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());

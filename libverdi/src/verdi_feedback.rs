@@ -6,51 +6,61 @@ use std::str;
 use core::{
     fmt::Debug,
 };
+use std::process::Command as pcmd;
 use serde::{Deserialize, Serialize};
 use libafl::{
     bolts::tuples::Named,
     corpus::Testcase,
     events::EventFirer,
     executors::ExitKind,
-    inputs::Input,
+    inputs::{Input, UsesInput},
     observers::{ObserversTuple},
     state::HasClientPerfMonitor,
     Error,
     feedbacks::Feedback
 };
-use crate::verdi_observer::VerdiObserver;
+use libafl::monitors::UserStats;
+use libafl::events::{Event};
+use crate::verdi_observer::VerdiMapObserver as VerdiObserver;
 extern crate fs_extra;
 use fs_extra::dir::copy;
 use std::fs;
+use std::process::Stdio;
+
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader},
+};
 
 /// Nop feedback that annotates execution time in the new testcase, if any
 /// for this Feedback, the testcase is never interesting (use with an OR).
 /// It decides, if the given [`TimeObserver`] value of a run is interesting.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VerdiFeedback {
-    history: Vec<u8>,
+    history: Vec<u32>,
     name: String,
     id: u32,
     outdir: String,
+    score : f32
 }
 
-impl<I, S> Feedback<I, S> for VerdiFeedback
+impl<S> Feedback<S> for VerdiFeedback
 where
-    I: Input,
-    S: HasClientPerfMonitor,
+    S: UsesInput + HasClientPerfMonitor,
 {
+
     #[allow(clippy::wrong_self_convention)]
     fn is_interesting<EM, OT>(
         &mut self,
-        _state: &mut S,
-        _manager: &mut EM,
-        _input: &I,
+        state: &mut S,
+        manager: &mut EM,
+        input: &S::Input,
         observers: &OT,
-        _exit_kind: &ExitKind,
+        exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
-        EM: EventFirer<I>,
-        OT: ObserversTuple<I, S>,
+        EM: EventFirer<State = S>,
+        OT: ObserversTuple<S>
     {
         let observer = observers.match_name::<VerdiObserver>(self.name()).unwrap();
 
@@ -66,41 +76,83 @@ where
             }
         }
 
-        println!("is Interesting? {:?}", interesting);
+        if self.score < observer.score() {
+            self.score = observer.score();
+
+            // Save scrore into state
+            manager.fire(
+                state,
+                Event::UpdateUserStats {
+                    name: format!("coverage"),
+                    value: UserStats::Float(self.score as f64),
+                    phantom: Default::default(),
+                },
+            )?;
+
+        }
+
         if interesting {
-            self.history = observer.map().clone().to_vec();
 
-            // let's backup the results into a unique directory
-            let mut options = fs_extra::dir::CopyOptions::new();
-            options.content_only = true;
-
-            let mut backup_dir_name = self.outdir.to_string();
-
-            backup_dir_name.push_str(&format!("../backup_{}", self.id));
-
-            let new_outdir = backup_dir_name.clone();
-            fs::create_dir(new_outdir)?;
-
-            let new_outdir = backup_dir_name.clone();
-            let ret = copy(&self.outdir, new_outdir, &options);
-            if let Err(e) = ret { 
-                return Err(Error::illegal_state(format!("{:?}", e))) 
-            }
+            // self.history = observer.map().clone().to_vec();
+//
+            // let args = "-dir ./Coverage.vdb -full64 -format text -metric tgl -report ./urg_report";
+            // let mut command = pcmd::new("urg");
+            // let command = command.args(args.split(' '))
+                // .stdin(Stdio::piped())
+                // .stdout(Stdio::piped())
+                // .stderr(Stdio::piped());
+//
+            // let child = command.spawn().expect("failed to start process");
+//
+            // let output = command.output().expect("failed to start process");
+            // println!("status: {}", String::from_utf8_lossy(&output.stdout));
+            // println!("status: {}", String::from_utf8_lossy(&output.stderr));
+//
+            // let file = File::open("./urg_report/tests.txt").unwrap();
+//
+            // let reader = std::io::BufReader::new(file);
+//
+            // let lines: Vec<String> = reader
+                // .lines()
+                // .map(|line| line.expect("Something went wrong while parsing urg report"))
+                // .collect();
+//
+            // let lines = lines[4].split_whitespace();
+//
+            // let str_items: Vec<&str> = lines
+            // .map(|s| s)
+            // .collect();
+//
+            // println!("Coverage: {} \n", str_items[0]);
+//
+            // let score = str_items[0].parse::<f64>().unwrap();
+//
+            // manager.fire(
+                // state,
+                // Event::UpdateUserStats {
+                    // name: format!("coverage"),
+                    // value: UserStats::Float(score),
+                    // phantom: Default::default(),
+                // },
+            // )?;
 
             self.id += 1;
         }
         Ok(interesting)
     }
 
-    /// Append to the testcase the generated metadata in case of a new corpus item
     #[inline]
-    fn append_metadata(&mut self, _state: &mut S, _testcase: &mut Testcase<I>) -> Result<(), Error> {
+    fn append_metadata(
+        &mut self,
+        _state: &mut S,
+        _testcase: &mut Testcase<S::Input>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
     /// Discard the stored metadata in case that the testcase is not added to the corpus
     #[inline]
-    fn discard_metadata(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn discard_metadata(&mut self, _state: &mut S, _input: &S::Input) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -116,7 +168,7 @@ impl VerdiFeedback {
     /// Creates a new [`VerdiFeedback`], deciding if the given [`VerdiObserver`] value of a run is interesting.
     #[must_use]
     pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {
-        let mut map = Vec::<u8>::with_capacity(capacity);
+        let mut map = Vec::<u32>::with_capacity(capacity);
         for _i in 0..capacity {
             map.push(0);
         }
@@ -125,6 +177,7 @@ impl VerdiFeedback {
             history: map,
             id: 0,
             outdir: outdir.to_string(),
+            score: 0.0
         }
     }
 }
