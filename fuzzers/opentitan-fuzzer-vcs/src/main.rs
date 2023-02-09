@@ -43,6 +43,7 @@ use libafl::prelude::MaxMapFeedback;
 
 use libverdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
 use libverdi::verdi_observer::VerdiMapObserver as VerdiObserver;
+use libverdi::verdi_observer::VerdiCoverageMetric;
 
 mod vcs_executor;
 
@@ -197,7 +198,7 @@ pub fn main() {
     let map_size: usize = 42000;
 
     let outdir = res.value_of("outdir").unwrap().to_string();
-    let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &outdir);
+    let verdi_observer = VerdiObserver::new("verdi_map", &outdir, map_size, &VerdiCoverageMetric::toggle);
 
     let map_feedback = MaxMapFeedback::new_tracking(&verdi_observer, true, false);
 
