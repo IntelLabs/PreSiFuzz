@@ -39,14 +39,15 @@ extern "C" {
     unsigned write_byte_index;
     unsigned type;
     unsigned size;
-    float    score;
+    uint32_t coverable;
+    uint32_t covered;
   }CoverageMap;
 
   void dump_instance_coverage( npiCovHandle scope, npiCovHandle test, CoverageMap* cov_map);
   npiCovHandle vdb_cov_init(const char* vdb_file_path);
   void vdb_cov_end(npiCovHandle db);
-  float compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map);
-  unsigned update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type);
+  void compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map);
+  float update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type);
 
   npiCovHandle vdb_cov_init(const char* vdb_file_path) {
 #ifdef DUMMY_LIB
@@ -101,7 +102,7 @@ extern "C" {
   void compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map)
   {
 #ifdef DUMMY_LIB
-    return 0.0;
+    return;
 #else
     npiCovHandle metric = npi_cov_handle( (npiCovObjType_e)cov_map->type, inst );
     npiCovHandle iter = npi_cov_iter_start( npiCovChild, metric );
@@ -110,7 +111,7 @@ extern "C" {
     {
       int covered =  npi_cov_get( npiCovCovered, block, test );
       cov_map->coverable = cov_map->coverable + npi_cov_get( npiCovCoverable, block, NULL );
-      cov_map->covered = total_coverd + covered;
+      cov_map->covered = cov_map->covered + covered;
 
       cov_map->map[cov_map->write_byte_index++] = covered;
     }
@@ -143,7 +144,8 @@ extern "C" {
     cov_map.write_byte_index = 0;
     cov_map.type = coverage_type;
     cov_map.size = map_size;
-    cov_map.score = 0.0;
+    cov_map.coverable = 0;
+    cov_map.covered = 0;
 
     // Iterate test and merge test
     npiCovHandle test_iter = npi_cov_iter_start( npiCovTest, db );
@@ -170,7 +172,7 @@ extern "C" {
     npi_cov_close( db );
     npi_end();
 
-    return ((float) map->covered / (float)map->coverable) * 100;
+    return ((float)cov_map.covered / (float)cov_map.coverable) * 100.0;
 #endif
   }
 
