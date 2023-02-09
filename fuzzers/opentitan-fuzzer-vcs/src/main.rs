@@ -11,6 +11,13 @@ use clap::Command as clap_cmd;
 
 #[cfg(feature = "tui")]
 use libafl::monitors::tui::TuiMonitor;
+use libafl::monitors::Monitor;
+use libafl::monitors::UserStats;
+use core::time::Duration;
+use libafl::prelude::format_duration_hms;
+use libafl::prelude::ClientStats;
+use libafl::prelude::current_time;
+
 #[cfg(not(feature = "tui"))]
 use libafl::{
     feedback_and_fast, feedback_or,
@@ -28,15 +35,86 @@ use libafl::{
     schedulers::QueueScheduler,
     stages::mutational::StdMutationalStage,
     state::StdState,
-    corpus::{OnDiskCorpus},
+    corpus::{OnDiskCorpus, InMemoryCorpus},
     inputs::bytes::BytesInput,
 };
 use libafl::executors::command::CommandConfigurator;
+use libafl::prelude::MaxMapFeedback;
 
 use libverdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
-use libverdi::verdi_observer::VerdiObserver as VerdiObserver;
+use libverdi::verdi_observer::VerdiMapObserver as VerdiObserver;
 
 mod vcs_executor;
+
+#[cfg(feature = "std")]
+/// Tracking monitor during fuzzing that just prints to `stdout`.
+#[derive(Debug, Clone, Default)]
+pub struct VCSMonitor {
+    start_time: Duration,
+    client_stats: Vec<ClientStats>,
+}
+
+#[cfg(feature = "std")]
+impl VCSMonitor {
+    /// Create a new [`VCSMonitor`]
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[cfg(feature = "std")]
+impl Monitor for VCSMonitor {
+    /// the client monitor, mutable
+    fn client_stats_mut(&mut self) -> &mut Vec<ClientStats> {
+        &mut self.client_stats
+    }
+
+    /// the client monitor
+    fn client_stats(&self) -> &[ClientStats] {
+        &self.client_stats
+    }
+
+    /// Time this fuzzing run stated
+    fn start_time(&mut self) -> Duration {
+        self.start_time
+    }
+
+    fn display(&mut self, event_msg: String, sender_id: u32) {
+        println!(
+            "[{} #{}] run time: {}, clients: {}, corpus: {}, objectives: {}, executions: {}, exec/sec: {}",
+            event_msg,
+            sender_id,
+            format_duration_hms(&(current_time() - self.start_time)),
+            self.client_stats().len(),
+            self.corpus_size(),
+            self.objective_size(),
+            self.total_execs(),
+            self.execs_per_sec(),
+            // self.execs_per_sec_pretty(),
+        );
+
+        let mut id = 0;
+        for client in self.client_stats_mut() {
+            let coverage = client.get_user_stats("coverage").unwrap();
+            println!("Client {} -> {} % coverage score.", id, coverage);
+            id += 1;
+        }
+        println!();
+
+        // Only print perf monitor if the feature is enabled
+        #[cfg(feature = "introspection")]
+        {
+            // Print the client performance monitor.
+            println!(
+                "Client {:03}:\n{}",
+                sender_id, self.client_stats[sender_id as usize].introspection_monitor
+            );
+            // Separate the spacing just a bit
+            println!();
+        }
+    }
+}
 
 #[allow(clippy::similar_names)]
 pub fn main() {
@@ -121,28 +199,19 @@ pub fn main() {
     let outdir = res.value_of("outdir").unwrap().to_string();
     let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &outdir);
 
-    // Create an observation channel to keep track of the execution time
-    let time_observer = TimeObserver::new("time");
+    let map_feedback = MaxMapFeedback::new_tracking(&verdi_observer, true, false);
 
     // Feedback to rate the interestingness of an input
     // This one is composed by two Feedbacks in OR
     let outdir = res.value_of("outdir").unwrap().to_string();
     let mut feedback = feedback_or!(
-        VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir),
-        TimeFeedback::new_with_observer(&time_observer)
+        VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir).
+        map_feedback
     );
 
     // A feedback to choose if an input is a solution or not
     // We want to do the same crash deduplication that AFL does
-    let mut objective = feedback_and_fast!(
-        // When an assertion failed, we could trigger a POSIX signal value
-        // that mimics a crash.
-        CrashFeedback::new(),
-        // Take it only if trigger new coverage over crashes
-        // This will discard redondant findings
-        CrashFeedback::new()
-        // MaxMapFeedback::<_, _, _, u8>::new(&vcs_observer)
-    );
+    let mut objective = ();
 
     // If not restarting, create a State from scratch
     let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
@@ -151,7 +220,7 @@ pub fn main() {
         StdRand::with_seed(current_nanos()),
         // Use on disk corpus, so that we keep trace of it
         // Performance impact is negligeable as the target is way slower
-        OnDiskCorpus::<BytesInput>::new(corpus_dir).unwrap(),
+        InMemoryCorpus::<BytesInput>::new(),
         // Corpus in which we store solutions (crashes in this example),
         // on disk so the user can get them after stopping the fuzzer
         OnDiskCorpus::new(&solution_dir).unwrap(),
@@ -164,7 +233,7 @@ pub fn main() {
     .unwrap();
 
     // The Monitor trait define how the fuzzer stats are displayed to the user
-    let mon = SimpleMonitor::new(|s| println!("{}", s));
+    let mon = VCSMonitor::new();
 
     // The event manager handle the various events generated during the fuzzing loop
     // such as the notification of the addition of a new item to the corpus
@@ -178,7 +247,7 @@ pub fn main() {
 
     // let executable = res.value_of("executable").unwrap();
     let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut executor = vcs_executor::VCSExecutor { executable, args, outdir}.into_executor(tuple_list!(verdi_observer, time_observer));
+    let mut executor = vcs_executor::VCSExecutor { executable, args, outdir}.into_executor(tuple_list!(verdi_observer));
 
     // Load initial inputs from corpus
     let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
