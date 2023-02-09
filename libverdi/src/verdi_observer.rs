@@ -197,10 +197,6 @@ where
         _exit_kind: &ExitKind,
     ) -> Result<(), Error> {
 
-        // start verdi_coverage programs to extract coverage map
-        // this programs fill directly the shared memory
-
-
         unsafe {
             let pmap = self.map.as_mut_ptr();
             self.map.set_len(self.cnt);
