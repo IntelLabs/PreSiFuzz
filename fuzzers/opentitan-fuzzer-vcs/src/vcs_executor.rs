@@ -19,7 +19,6 @@ use libafl::{
 use std::path::Path;
 use std::io::prelude::*;
 use std::fs::File;
-use std::io::{ self, BufRead, BufReader };
 //
 // Create the executor for an in-process function with just one observer
 #[derive(Debug)]
@@ -67,13 +66,9 @@ impl CommandConfigurator for VCSExecutor
             .stderr(Stdio::piped());
 
         let child = command.spawn().expect("failed to start process");
-        // println!("Execution done");
 
-        let output = command.output().expect("failed to start process");
+        // let output = command.output().expect("failed to start process");
         // println!("status: {}", String::from_utf8_lossy(&output.stdout));
-
-        // let ten_millis = time::Duration::from_millis(30000);
-        // thread::sleep(ten_millis);
 
         Ok(child)
     }

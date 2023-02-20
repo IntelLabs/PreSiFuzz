@@ -12,7 +12,6 @@ use clap::Command as clap_cmd;
 #[cfg(feature = "tui")]
 use libafl::monitors::tui::TuiMonitor;
 use libafl::monitors::Monitor;
-use libafl::monitors::UserStats;
 use core::time::Duration;
 use libafl::prelude::format_duration_hms;
 use libafl::prelude::ClientStats;
@@ -20,17 +19,13 @@ use libafl::prelude::current_time;
 
 #[cfg(not(feature = "tui"))]
 use libafl::{
-    feedback_and_fast, feedback_or,
     bolts::{
         current_nanos,
         rands::StdRand,
         tuples::tuple_list,
     },
     events::SimpleEventManager,
-    feedbacks::{CrashFeedback, TimeFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
-    monitors::SimpleMonitor,
-    observers::{TimeObserver},
     mutators::scheduled::{havoc_mutations, StdScheduledMutator},
     schedulers::QueueScheduler,
     stages::mutational::StdMutationalStage,
@@ -41,9 +36,9 @@ use libafl::{
 use libafl::executors::command::CommandConfigurator;
 use libafl::prelude::MaxMapFeedback;
 
-use libverdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
-use libverdi::verdi_observer::VerdiMapObserver as VerdiObserver;
-use libverdi::verdi_observer::VerdiCoverageMetric;
+// use libafl_verdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
+use libafl_verdi::verdi_observer::VerdiMapObserver;
+use libafl_verdi::verdi_observer::VerdiCoverageMetric;
 
 mod vcs_executor;
 
@@ -184,9 +179,7 @@ pub fn main() {
     // let shmem_buf = shmem.as_mut_slice();
 
     // Load user provided parameters
-    let executable = res.value_of("executable").unwrap().to_string();
     let args = res.value_of("arguments").unwrap().to_string();
-    let vdb = res.value_of("vdb").unwrap().to_string();
     
     let mut outdir = res.value_of("outdir").unwrap().to_string();
     outdir.push_str("/solutions");
@@ -198,24 +191,23 @@ pub fn main() {
     let map_size: usize = 42000;
 
     let outdir = res.value_of("outdir").unwrap().to_string();
-    let verdi_observer = VerdiObserver::new("verdi_map", &outdir, map_size, &VerdiCoverageMetric::toggle);
+    let verdi_observer = VerdiMapObserver::<u32>::new("verdi_map", &outdir, map_size, &VerdiCoverageMetric::Toggle);
 
-    let map_feedback = MaxMapFeedback::new_tracking(&verdi_observer, true, false);
+    let mut feedback = MaxMapFeedback::new(&verdi_observer);
 
     // Feedback to rate the interestingness of an input
     // This one is composed by two Feedbacks in OR
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut feedback = feedback_or!(
-        VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir).
-        map_feedback
-    );
+    // let outdir = res.value_of("outdir").unwrap().to_string();
+    // let mut feedback = feedback_or!(
+        // VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir).
+        // map_feedback
+    // );
 
     // A feedback to choose if an input is a solution or not
     // We want to do the same crash deduplication that AFL does
     let mut objective = ();
 
     // If not restarting, create a State from scratch
-    let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
     let mut state = StdState::new(
         // RNG
         StdRand::with_seed(current_nanos()),
@@ -246,9 +238,9 @@ pub fn main() {
     // A fuzzer with feedbacks and a corpus scheduler
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
-    // let executable = res.value_of("executable").unwrap();
+    let executable = res.value_of("executable").unwrap();
     let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut executor = vcs_executor::VCSExecutor { executable, args, outdir}.into_executor(tuple_list!(verdi_observer));
+    let mut executor = vcs_executor::VCSExecutor { executable: executable.to_string(), args, outdir}.into_executor(tuple_list!(verdi_observer));
 
     // Load initial inputs from corpus
     let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());

@@ -6,14 +6,13 @@ use std::str;
 use core::{
     fmt::Debug,
 };
-use std::process::Command as pcmd;
 use serde::{Deserialize, Serialize};
 use libafl::{
     bolts::tuples::Named,
     corpus::Testcase,
     events::EventFirer,
     executors::ExitKind,
-    inputs::{Input, UsesInput},
+    inputs::{UsesInput},
     observers::{ObserversTuple},
     state::HasClientPerfMonitor,
     Error,
@@ -22,31 +21,25 @@ use libafl::{
 use libafl::monitors::UserStats;
 use libafl::events::{Event};
 use crate::verdi_observer::VerdiMapObserver as VerdiObserver;
+use num_traits::Bounded;
 extern crate fs_extra;
-use fs_extra::dir::copy;
-use std::fs;
-use std::process::Stdio;
-
-use std::{
-    fs::File,
-    io::{self, BufRead, BufReader},
-};
 
 /// Nop feedback that annotates execution time in the new testcase, if any
 /// for this Feedback, the testcase is never interesting (use with an OR).
 /// It decides, if the given [`TimeObserver`] value of a run is interesting.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct VerdiFeedback {
-    history: Vec<u32>,
+pub struct VerdiFeedback<T> {
+    history: Vec<T>,
     name: String,
     id: u32,
     outdir: String,
     score : f32
 }
 
-impl<S> Feedback<S> for VerdiFeedback
+impl<S, T> Feedback<S> for VerdiFeedback<T>
 where
     S: UsesInput + HasClientPerfMonitor,
+    T: Bounded + Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug + PartialEq + std::cmp::PartialOrd
 {
 
     #[allow(clippy::wrong_self_convention)]
@@ -54,15 +47,15 @@ where
         &mut self,
         state: &mut S,
         manager: &mut EM,
-        input: &S::Input,
+        _input: &S::Input,
         observers: &OT,
-        exit_kind: &ExitKind,
+        _exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>
     {
-        let observer = observers.match_name::<VerdiObserver>(self.name()).unwrap();
+        let observer = observers.match_name::<VerdiObserver<T>>(self.name()).unwrap();
 
         let capacity = observer.cnt() as usize;
         let mut interesting : bool = false;
@@ -157,20 +150,20 @@ where
     }
 }
 
-impl Named for VerdiFeedback {
+impl<T> Named for VerdiFeedback<T> {
     #[inline]
     fn name(&self) -> &str {
         self.name.as_str()
     }
 }
 
-impl VerdiFeedback {
+impl<T: Default> VerdiFeedback<T> {
     /// Creates a new [`VerdiFeedback`], deciding if the given [`VerdiObserver`] value of a run is interesting.
     #[must_use]
     pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {
-        let mut map = Vec::<u32>::with_capacity(capacity);
+        let mut map = Vec::<T>::with_capacity(capacity);
         for _i in 0..capacity {
-            map.push(0);
+            map.push(T::default());
         }
         Self {
             name: name.to_string(),

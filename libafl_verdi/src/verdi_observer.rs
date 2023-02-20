@@ -3,39 +3,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use libafl::{
-    bolts::{tuples::Named, AsIter, HasLen, AsMutSlice},
+    bolts::{tuples::Named, AsIter, HasLen},
     executors::{ExitKind},
-    impl_serdeany,
-    observers::{self, MapObserver, Observer},
+    observers::{MapObserver, Observer},
     observers::{DifferentialObserver, ObserversTuple},
-    state::HasNamedMetadata,
     Error,
-    inputs::{BytesInput, HasBytesVec, UsesInput},
-    prelude::Input,
+    inputs::{UsesInput},
 };
 
 use core::{
     slice::from_raw_parts,
     fmt::Debug,
+    slice::IterMut,
 };
-
+use libafl::prelude::AsIterMut;
 use serde::{Deserialize, Serialize};
 use libc::{c_uint, c_char, c_void, c_float};
 
 extern crate fs_extra;
-use fs_extra::dir::copy;
 use std::{
     str,
-    path::Path,
     hash::Hasher,
-    fs::{self, read_link, File},
-    io::{BufRead, BufReader, Seek, SeekFrom},
-    os::fd::FromRawFd,
-    ffi::{CString}
+    ffi::{CString},
 };
-use nix::{fcntl::OFlag, sys::stat::Mode, NixPath};
 use ahash::AHasher;
-
+use num_traits::Bounded;
 type NpiCovHandle = *mut c_void;
 
 #[link(name = "npi_c", kind = "static")]
@@ -50,11 +42,14 @@ extern "C" {
 
 /// A simple observer, just overlooking the runtime of the target.
 #[derive(Serialize, Deserialize, Debug)]
-pub struct VerdiMapObserver {
+pub struct VerdiMapObserver<T> 
+where
+    T: Default + Copy + 'static + Serialize,
+{
     name: String,
-    initial: u32,
+    initial: T,
     cnt: usize,
-    map: Vec<u32>,
+    map: Vec<T>,
     workdir: String,
     metric: u32,
     score: f32
@@ -62,20 +57,23 @@ pub struct VerdiMapObserver {
 
 #[derive(Copy, Clone)]
 pub enum VerdiCoverageMetric {
-    toggle = 4,
-    line = 5
+    Toggle = 4,
+    Line = 5
 }
 
-impl VerdiMapObserver {
+impl<T> VerdiMapObserver<T>
+where
+    T: Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug,
+{
     /// Creates a new [`VerdiMapObserver`] with the given name.
     #[must_use]
     pub fn new(name: &'static str, workdir: &String, size: usize, metric: &VerdiCoverageMetric) -> Self {
 
         Self {
             name: name.to_string(),
-            initial: 0,
+            initial: T::default(),
             cnt: size,
-            map: Vec::<u32>::with_capacity(size),
+            map: Vec::<T>::with_capacity(size),
             workdir: workdir.to_string(),
             metric: *metric as u32,
             score: 0.0
@@ -84,7 +82,7 @@ impl VerdiMapObserver {
 
     /// Get a list ref
     #[must_use]
-    pub fn map(&self) -> &Vec<u32> {
+    pub fn map(&self) -> &Vec<T> {
         self.map.as_ref()
     }
 
@@ -102,13 +100,20 @@ impl VerdiMapObserver {
 
 }
 
-impl Named for VerdiMapObserver {
+impl<T> Named for VerdiMapObserver<T>
+where
+    T: Default + Copy + 'static + Serialize + serde::de::DeserializeOwned,
+{
     fn name(&self) -> &str {
         &self.name
     }
 }
 
-impl HasLen for VerdiMapObserver {
+impl<T> HasLen for VerdiMapObserver<T>
+where
+    T: Default + Copy + 'static + Serialize + serde::de::DeserializeOwned,
+{
+
     fn len(&self) -> usize {
         self.map.len()
     }
@@ -118,19 +123,32 @@ impl HasLen for VerdiMapObserver {
     }
 }
 
-impl MapObserver for VerdiMapObserver {
-    type Entry = u32;
+impl<T> MapObserver for VerdiMapObserver<T>
+where
+    // T: Default + Copy + 'static + Serialize + Bounded + PartialEq + Debug + Serialize + serde::de::DeserializeOwned
+    T: Bounded
+        + PartialEq
+        + Default
+        + Copy
+        + 'static
+        + Serialize
+        + serde::de::DeserializeOwned
+        + Debug,
+{
+    type Entry = T;
 
-    fn get(&self, idx: usize) -> &Self::Entry {
+    fn get(&self, idx: usize) -> &T {
         self.map.get(idx).unwrap()
     }
 
-    fn get_mut(&mut self, idx: usize) -> &mut Self::Entry {
-        self.map.get_mut(idx).unwrap()
+    fn get_mut(&mut self, idx: usize) -> &mut T {
+        // self.map.get_mut(idx).unwrap()
+        &mut self.map.as_mut_slice()[idx]
     }
 
     fn usable_count(&self) -> usize {
         self.map.len()
+        // *self.cnt.as_ref()
     }
 
     fn count_bytes(&self) -> u64 {
@@ -151,19 +169,23 @@ impl MapObserver for VerdiMapObserver {
     }
 
     #[inline(always)]
-    fn initial(&self) -> Self::Entry {
-        0
+    fn initial(&self) -> T {
+        self.initial
     }
 
     fn reset_map(&mut self) -> Result<(), Error> {
-        let len = self.map.len();
-        self.map.clear();
-        self.map.resize(len, 0);
+        let initial = self.initial();
+        let cnt = self.usable_count();
+        let map = self.map.as_mut_slice();
+        for x in map[0..cnt].iter_mut() {
+            *x = initial;
+        }
         Ok(())
     }
 
-    fn to_vec(&self) -> Vec<Self::Entry> {
-        self.map.clone()
+    fn to_vec(&self) -> Vec<T> {
+        self.map.as_slice().to_vec()
+        // self.map.clone()
     }
 
     fn how_many_set(&self, indexes: &[usize]) -> usize {
@@ -175,17 +197,13 @@ impl MapObserver for VerdiMapObserver {
     }
 }
 
-impl<S> Observer<S> for VerdiMapObserver
+impl<S, T> Observer<S> for VerdiMapObserver<T> 
 where
-    S: UsesInput
+    S: UsesInput,
+    T: Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug + PartialEq 
 {
     fn pre_exec(&mut self, _state: &mut S, _input: &S::Input) -> Result<(), Error> {
-
-        // let's clean the map
-        let initial = self.initial;
-        for x in self.map.iter_mut() {
-            *x = initial;
-        }
+        // self.reset_map()
         Ok(())
     }
 
@@ -213,8 +231,11 @@ where
     }
 }
 
-impl<'it> AsIter<'it> for VerdiMapObserver {
-    type Item = u32;
+impl<'it, T> AsIter<'it> for VerdiMapObserver<T>
+where
+    T: Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug,
+{
+    type Item = T;
     type IntoIter = core::slice::Iter<'it, Self::Item>;
 
     fn as_iter(&'it self) -> Self::IntoIter {
@@ -222,25 +243,38 @@ impl<'it> AsIter<'it> for VerdiMapObserver {
     }
 }
 
-impl<OTA, OTB, S> DifferentialObserver<OTA, OTB, S> for VerdiMapObserver
+impl<'it, T> AsIterMut<'it> for VerdiMapObserver<T>
+where
+    T: Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug,
+{
+    type Item = T;
+    type IntoIter = IterMut<'it, T>;
+
+    fn as_iter_mut(&'it mut self) -> Self::IntoIter {
+        self.map.as_mut_slice().iter_mut()
+    }
+}
+
+impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for VerdiMapObserver<T> 
 where
     OTA: ObserversTuple<S>,
     OTB: ObserversTuple<S>,
     S: UsesInput,
+    T: Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug + PartialEq,
 {
-    fn pre_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
+    fn pre_observe_first(&mut self, _observers: &mut OTA) -> Result<(), Error> {
         Ok(())
     }
 
-    fn post_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
+    fn post_observe_first(&mut self, _observers: &mut OTA) -> Result<(), Error> {
         Ok(())
     }
 
-    fn pre_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
+    fn pre_observe_second(&mut self, _observers: &mut OTB) -> Result<(), Error> {
         Ok(())
     }
 
-    fn post_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
+    fn post_observe_second(&mut self, _observers: &mut OTB) -> Result<(), Error> {
         Ok(())
     }
 }
