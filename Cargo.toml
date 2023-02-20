@@ -15,7 +15,7 @@ out_dir = "custom"
 
 [workspace]
 members = [
-    "libverdi",
+    "libafl_verdi",
     "libafl_verilator",
 ]
 exclude = [
