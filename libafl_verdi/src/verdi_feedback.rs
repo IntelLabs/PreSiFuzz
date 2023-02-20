@@ -6,45 +6,43 @@ use std::str;
 use core::{
     fmt::Debug,
 };
-use std::process::Command as pcmd;
 use serde::{Deserialize, Serialize};
 use libafl::{
     bolts::tuples::Named,
     corpus::Testcase,
     events::EventFirer,
     executors::ExitKind,
-    inputs::{Input, UsesInput},
+    inputs::{UsesInput},
     observers::{ObserversTuple},
     state::HasClientPerfMonitor,
     Error,
     feedbacks::Feedback
 };
+use libafl::bolts::AsSlice;
 use libafl::monitors::UserStats;
 use libafl::events::{Event};
-use crate::verdi_observer::VerdiMapObserver as VerdiObserver;
-extern crate fs_extra;
-use fs_extra::dir::copy;
-use std::fs;
-use std::process::Stdio;
+use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
+use std::process::Command;
+use std::path::Path;
+use libafl::inputs::Input;
 
-use std::{
-    fs::File,
-    io::{self, BufRead, BufReader},
-};
+extern crate fs_extra;
 
 /// Nop feedback that annotates execution time in the new testcase, if any
 /// for this Feedback, the testcase is never interesting (use with an OR).
 /// It decides, if the given [`TimeObserver`] value of a run is interesting.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct VerdiFeedback {
+pub struct VerdiFeedback<const N: usize> 
+{
     history: Vec<u32>,
     name: String,
     id: u32,
-    outdir: String,
-    score : f32
+    workdir: String,
+    score: f32,
+    save_on_new_coverage: bool
 }
 
-impl<S> Feedback<S> for VerdiFeedback
+impl<S, const N: usize> Feedback<S> for VerdiFeedback<N>
 where
     S: UsesInput + HasClientPerfMonitor,
 {
@@ -54,90 +52,108 @@ where
         &mut self,
         state: &mut S,
         manager: &mut EM,
-        input: &S::Input,
+        _input: &S::Input,
         observers: &OT,
-        exit_kind: &ExitKind,
+        _exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>
     {
-        let observer = observers.match_name::<VerdiObserver>(self.name()).unwrap();
+        let observer = observers.match_name::<VerdiObserver<N>>(self.name()).unwrap();
+        let capacity = observer.cnt();
 
-        let capacity = observer.cnt() as usize;
         let mut interesting : bool = false;
 
-        let o_map = observer.map();
+        let o_map = observer.my_map().as_slice();
 
-        for (i, item) in o_map.iter().enumerate().take(capacity) {
+        for (i, item) in o_map.iter().enumerate().filter(|&(i,_)| i>=2).take(capacity) {
+        //for (i, item) in o_map.iter().enumerate().take(capacity) {
+            if i == 0 {
+                continue;
+            }
+
             if self.history[i] < *item {
                 interesting = true; 
                 break;
             }
         }
+            
+        let coverable = o_map[1];
 
-        if self.score < observer.score() {
-            self.score = observer.score();
+        if interesting {
+        
+            let mut covered = 0; 
 
+            let o_map = observer.my_map().as_slice();
+            for (i, item) in o_map.iter().enumerate().filter(|&(i,_)| i>=2).take(capacity) {
+                if self.history[i] < *item {
+                    self.history[i] = *item;
+                    covered += *item;
+                } else {
+                    covered += self.history[i];
+                }
+            }
+            self.history[0] = covered;
+            self.history[1] = coverable;
+        
+            self.score = (covered as f32 / coverable as f32) * 100.0;
+ 
             // Save scrore into state
             manager.fire(
                 state,
                 Event::UpdateUserStats {
-                    name: format!("coverage"),
-                    value: UserStats::Float(self.score as f64),
+                    name: "coverage".to_string(),
+                    value: UserStats::Ratio(covered as u64, coverable as u64),
                     phantom: Default::default(),
                 },
             )?;
 
-        }
+            let mut backup_path = self.workdir.clone();
+            backup_path.push_str(&format!("/backup_{}", self.id));
+            
+            manager.fire(
+                state,
+                Event::UpdateUserStats {
+                    name: "VDB".to_string(),
+                    value: UserStats::String( backup_path.clone()),
+                    phantom: Default::default(),
+                },
+            )?;
 
-        if interesting {
+            // backup the vdb folder
+            assert!(Command::new("cp")
+                .arg("-r")
+                .arg("./Coverage.vdb")
+                .arg(backup_path)
+                .status()
+                .unwrap()
+                .success());
 
-            // self.history = observer.map().clone().to_vec();
-//
-            // let args = "-dir ./Coverage.vdb -full64 -format text -metric tgl -report ./urg_report";
-            // let mut command = pcmd::new("urg");
-            // let command = command.args(args.split(' '))
-                // .stdin(Stdio::piped())
-                // .stdout(Stdio::piped())
-                // .stderr(Stdio::piped());
-//
-            // let child = command.spawn().expect("failed to start process");
-//
-            // let output = command.output().expect("failed to start process");
-            // println!("status: {}", String::from_utf8_lossy(&output.stdout));
-            // println!("status: {}", String::from_utf8_lossy(&output.stderr));
-//
-            // let file = File::open("./urg_report/tests.txt").unwrap();
-//
-            // let reader = std::io::BufReader::new(file);
-//
-            // let lines: Vec<String> = reader
-                // .lines()
-                // .map(|line| line.expect("Something went wrong while parsing urg report"))
-                // .collect();
-//
-            // let lines = lines[4].split_whitespace();
-//
-            // let str_items: Vec<&str> = lines
-            // .map(|s| s)
-            // .collect();
-//
-            // println!("Coverage: {} \n", str_items[0]);
-//
-            // let score = str_items[0].parse::<f64>().unwrap();
-//
-            // manager.fire(
-                // state,
-                // Event::UpdateUserStats {
-                    // name: format!("coverage"),
-                    // value: UserStats::Float(score),
-                    // phantom: Default::default(),
-                // },
-            // )?;
+            if self.save_on_new_coverage == true {
+                _input.to_file(Path::new(&format!("{}.seed",self.id)))?;         
+            }
 
             self.id += 1;
         }
+
+        // Clean existing vdb
+        assert!(Command::new("rm")
+            .arg("-rf")
+            .arg("./Coverage.vdb")
+            .status()
+            .unwrap()
+            .success());
+
+        // Copy virgin vdb
+        assert!(Command::new("cp")
+            .arg("-r")
+            .arg("./Virgin_coverage.vdb")
+            .arg("./Coverage.vdb")
+            .status()
+            .unwrap()
+            .success());
+
         Ok(interesting)
     }
 
@@ -157,27 +173,30 @@ where
     }
 }
 
-impl Named for VerdiFeedback {
+impl<const N: usize> Named for VerdiFeedback<N> 
+{
     #[inline]
     fn name(&self) -> &str {
         self.name.as_str()
     }
 }
 
-impl VerdiFeedback {
+impl<const N: usize> VerdiFeedback<N> 
+{
     /// Creates a new [`VerdiFeedback`], deciding if the given [`VerdiObserver`] value of a run is interesting.
     #[must_use]
-    pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {
+    pub fn new_with_observer(name: &'static str, capacity: usize, workdir: &String) -> Self {
         let mut map = Vec::<u32>::with_capacity(capacity);
         for _i in 0..capacity {
-            map.push(0);
+            map.push(u32::default());
         }
         Self {
             name: name.to_string(),
             history: map,
             id: 0,
-            outdir: outdir.to_string(),
-            score: 0.0
+            workdir: workdir.to_string(),
+            score: 0.0,
+            save_on_new_coverage: false
         }
     }
 }

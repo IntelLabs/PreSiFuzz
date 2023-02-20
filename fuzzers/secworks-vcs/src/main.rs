@@ -11,35 +11,121 @@ use std::{
 use clap::Arg;
 use clap::Command as clap_cmd;
 
+#[cfg(not(target_vendor = "apple"))]
+use libafl::bolts::shmem::StdShMemProvider;
+#[cfg(target_vendor = "apple")]
+use libafl::bolts::shmem::UnixShMemProvider;
+
 #[cfg(feature = "tui")]
 use libafl::monitors::tui::TuiMonitor;
 #[cfg(not(feature = "tui"))]
 use libafl::{
-    feedback_and_fast, feedback_or,
     bolts::{
         current_nanos,
         rands::StdRand,
+        shmem::{ShMem, ShMemProvider},
         tuples::tuple_list,
+        AsMutSlice
     },
     events::SimpleEventManager,
-    feedbacks::{CrashFeedback, TimeFeedback},
+    // feedbacks::{TimeFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
-    monitors::SimpleMonitor,
-    observers::{TimeObserver},
+    // monitors::SimpleMonitor,
+    // observers::{TimeObserver},
     mutators::scheduled::{havoc_mutations, StdScheduledMutator},
     schedulers::QueueScheduler,
     stages::mutational::StdMutationalStage,
     state::StdState,
-    corpus::{OnDiskCorpus},
+    corpus::{InMemoryCorpus, OnDiskCorpus},
     inputs::bytes::BytesInput,
 };
-use libafl::executors::command::CommandConfigurator;
+use libafl::monitors::Monitor;
+use core::time::Duration;
+use libafl::prelude::format_duration_hms;
+use libafl::prelude::ClientStats;
+use libafl::prelude::current_time;
 
-use libverdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
-use libverdi::verdi_observer::VerdiMapObserver as VerdiObserver;
-use libverdi::verdi_observer::VerdiCoverageMetric;
+use libafl::executors::command::CommandConfigurator;
+// use libafl::prelude::MaxMapFeedback;
+
+use libafl_verdi::verdi_feedback::VerdiFeedback;
+use libafl_verdi::verdi_observer::VerdiShMapObserver;
+use libafl_verdi::verdi_observer::VerdiCoverageMetric;
 
 mod vcs_executor;
+
+#[cfg(feature = "std")]
+/// Tracking monitor during fuzzing that just prints to `stdout`.
+#[derive(Debug, Clone, Default)]
+pub struct VCSMonitor {
+    start_time: Duration,
+    client_stats: Vec<ClientStats>,
+}
+
+#[cfg(feature = "std")]
+impl VCSMonitor {
+    /// Create a new [`VCSMonitor`]
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[cfg(feature = "std")]
+impl Monitor for VCSMonitor {
+    /// the client monitor, mutable
+    fn client_stats_mut(&mut self) -> &mut Vec<ClientStats> {
+        &mut self.client_stats
+    }
+
+    /// the client monitor
+    fn client_stats(&self) -> &[ClientStats] {
+        &self.client_stats
+    }
+
+    /// Time this fuzzing run stated
+    fn start_time(&mut self) -> Duration {
+        self.start_time
+    }
+
+    fn display(&mut self, event_msg: String, sender_id: u32) {
+        println!(
+            "[{} #{}] run time: {}, clients: {}, corpus: {}, objectives: {}, executions: {}, exec/sec: {}",
+            event_msg,
+            sender_id,
+            format_duration_hms(&(current_time() - self.start_time)),
+            self.client_stats().len(),
+            self.corpus_size(),
+            self.objective_size(),
+            self.total_execs(),
+            self.execs_per_sec(),
+            // self.execs_per_sec_pretty(),
+        );
+
+        let mut id = 0;
+        for client in self.client_stats_mut() {
+            let coverage = client.get_user_stats("coverage");
+            match coverage {
+                Some(coverage) => println!("Client {} -> {} % coverage score.", id, coverage),
+                None          => println!("Client {} -> {} % coverage score.", id, 0),
+            }
+            id += 1;
+        }
+        println!();
+
+        // Only print perf monitor if the feature is enabled
+        #[cfg(feature = "introspection")]
+        {
+            // Print the client performance monitor.
+            println!(
+                "Client {:03}:\n{}",
+                sender_id, self.client_stats[sender_id as usize].introspection_monitor
+            );
+            // Separate the spacing just a bit
+            println!();
+        }
+    }
+}
 
 #[allow(clippy::similar_names)]
 pub fn main() {
@@ -98,19 +184,33 @@ pub fn main() {
         )
         .get_matches();
 
-    // const MAP_SIZE: usize = 65536;
-    // let mut shmem_provider = unix_shmem::MmapShMemProvider::new().unwrap();
-    // The coverage map shared between observer and executor
-    // The shared memory id is saved in __AFL_SHM_ID 
-    // let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
-    // shmem.write_to_env("__AFL_SHM_ID").unwrap();
-    // let shmem_id = shmem.id();
-    // let shmem_buf = shmem.as_mut_slice();
+    const MAP_SIZE: usize = 65536*4;
+
+    //Coverage map shared between observer and executor
+    #[cfg(target_vendor = "apple")]
+    let mut shmem_provider = UnixShMemProvider::new().unwrap();
+    #[cfg(not(target_vendor = "apple"))]
+    let mut shmem_provider = StdShMemProvider::new().unwrap();
+    let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
+    //let the forkserver know the shmid
+    shmem.write_to_env("__AFL_SHM_ID").unwrap();
+    let shmem_buf = shmem.as_mut_slice();
+    let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
+
+    let (mut feedback, verdi_observer) = 
+    {
+        let outdir = res.value_of("outdir").unwrap().to_string();
+        let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &outdir, shmem_ptr, &VerdiCoverageMetric::Toggle)};
+
+        let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &outdir);
+        // let feedback = MaxMapFeedback::new(&verdi_observer);
+
+        (feedback, verdi_observer)
+    };
 
     // Load user provided parameters
     let executable = res.value_of("executable").unwrap().to_string();
     let args = res.value_of("arguments").unwrap().to_string();
-    let vdb = res.value_of("vdb").unwrap().to_string();
     
     let mut outdir = res.value_of("outdir").unwrap().to_string();
     outdir.push_str("/solutions");
@@ -119,42 +219,33 @@ pub fn main() {
     // The vcs observer observes the coverage metrics exposed by vcs
     // The coverage is for now collected by another process since the lib is in c++
     // But would be interesting to get everything at one place in the future
-    let map_size: usize = 42000;
+    // let map_size: usize = 42000;
 
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &VerdiCoverageMetric::toggle);
+    // let outdir = res.value_of("outdir").unwrap().to_string();
+    // let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &VerdiCoverageMetric::toggle);
 
     // Create an observation channel to keep track of the execution time
-    let time_observer = TimeObserver::new("time");
+    // let time_observer = TimeObserver::new("time");
 
     // Feedback to rate the interestingness of an input
     // This one is composed by two Feedbacks in OR
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut feedback = feedback_or!(
-        VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir),
-        TimeFeedback::with_observer(&time_observer)
-    );
+    // let outdir = res.value_of("outdir").unwrap().to_string();
+    // let mut feedback = feedback_or!(
+        // VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir),
+        // TimeFeedback::with_observer(&time_observer)
+    // );
 
     // A feedback to choose if an input is a solution or not
     // We want to do the same crash deduplication that AFL does
-    let mut objective = feedback_and_fast!(
-        // When an assertion failed, we could trigger a POSIX signal value
-        // that mimics a crash.
-        CrashFeedback::new(),
-        // Take it only if trigger new coverage over crashes
-        // This will discard redondant findings
-        CrashFeedback::new()
-        // MaxMapFeedback::<_, _, _, u8>::new(&vcs_observer)
-    );
+    let mut objective = ();
 
     // If not restarting, create a State from scratch
-    let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
     let mut state = StdState::new(
         // RNG
         StdRand::with_seed(current_nanos()),
         // Use on disk corpus, so that we keep trace of it
         // Performance impact is negligeable as the target is way slower
-        OnDiskCorpus::<BytesInput>::new(corpus_dir).unwrap(),
+        InMemoryCorpus::<BytesInput>::new(),
         // Corpus in which we store solutions (crashes in this example),
         // on disk so the user can get them after stopping the fuzzer
         OnDiskCorpus::new(&solution_dir).unwrap(),
@@ -167,7 +258,8 @@ pub fn main() {
     .unwrap();
 
     // The Monitor trait define how the fuzzer stats are displayed to the user
-    let mon = SimpleMonitor::new(|s| println!("{}", s));
+    // let mon = SimpleMonitor::new(|s| println!("{}", s));
+    let mon = VCSMonitor::new();
 
     // The event manager handle the various events generated during the fuzzing loop
     // such as the notification of the addition of a new item to the corpus

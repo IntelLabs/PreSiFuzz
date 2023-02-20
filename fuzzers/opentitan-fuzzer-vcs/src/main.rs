@@ -6,263 +6,308 @@ use std::{
     path::PathBuf,
 };
 
-use clap::Arg;
-use clap::Command as clap_cmd;
-
 #[cfg(feature = "tui")]
 use libafl::monitors::tui::TuiMonitor;
-use libafl::monitors::Monitor;
-use libafl::monitors::UserStats;
+
+use libafl::prelude::MultiMonitor;
+use libafl::prelude::Launcher;
+use libafl::inputs::HasTargetBytes;
 use core::time::Duration;
-use libafl::prelude::format_duration_hms;
-use libafl::prelude::ClientStats;
-use libafl::prelude::current_time;
+use std::{
+    process::{Stdio},
+};
+use libafl::prelude::Input;
+use std::process::Command as pcmd;
+use wait_timeout::ChildExt;
+
+#[cfg(not(target_vendor = "apple"))]
+use libafl::bolts::shmem::StdShMemProvider;
+#[cfg(target_vendor = "apple")]
+use libafl::bolts::shmem::UnixShMemProvider;
 
 #[cfg(not(feature = "tui"))]
 use libafl::{
-    feedback_and_fast, feedback_or,
     bolts::{
+        core_affinity::Cores,
         current_nanos,
         rands::StdRand,
         tuples::tuple_list,
+        shmem::{ShMemProvider},
+        AsMutSlice, AsSlice
     },
-    events::SimpleEventManager,
-    feedbacks::{CrashFeedback, TimeFeedback},
+    executors::{inprocess::InProcessExecutor, ExitKind, TimeoutExecutor},
+    events::{EventConfig},
     fuzzer::{Fuzzer, StdFuzzer},
-    monitors::SimpleMonitor,
-    observers::{TimeObserver},
     mutators::scheduled::{havoc_mutations, StdScheduledMutator},
     schedulers::QueueScheduler,
     stages::mutational::StdMutationalStage,
     state::StdState,
     corpus::{OnDiskCorpus, InMemoryCorpus},
     inputs::bytes::BytesInput,
+    Error
 };
-use libafl::executors::command::CommandConfigurator;
-use libafl::prelude::MaxMapFeedback;
+use std::env;
+use std::path::Path;
+use std::io::prelude::*;
+use std::fs::File;
+use tempdir::TempDir;
 
-use libverdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
-use libverdi::verdi_observer::VerdiMapObserver as VerdiObserver;
-use libverdi::verdi_observer::VerdiCoverageMetric;
+// use libafl::prelude::MaxMapFeedback;
+
+use libafl_verdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
+// use libafl_verdi::verdi_observer::VerdiMapObserver;
+use libafl_verdi::verdi_observer::VerdiShMapObserver;
+use libafl_verdi::verdi_observer::VerdiCoverageMetric;
 
 mod vcs_executor;
 
-#[cfg(feature = "std")]
-/// Tracking monitor during fuzzing that just prints to `stdout`.
-#[derive(Debug, Clone, Default)]
-pub struct VCSMonitor {
-    start_time: Duration,
-    client_stats: Vec<ClientStats>,
+#[derive(Debug)]
+pub struct WorkDir(Option<TempDir>);
+
+// Forward inherent methods to the tempdir crate.
+use std::io::Result;
+impl WorkDir {
+    pub fn new(prefix: &str) -> Result<WorkDir>
+    { TempDir::new(prefix).map(Some).map(WorkDir) }
+
+    pub fn path(&self) -> &Path
+    { self.0.as_ref().unwrap().path() }
 }
 
-#[cfg(feature = "std")]
-impl VCSMonitor {
-    /// Create a new [`VCSMonitor`]
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+/// Leaks the inner TempDir if we are unwinding.
+impl Drop for WorkDir {
+    fn drop(&mut self) {
+        ::std::mem::forget(self.0.take())
     }
 }
 
-#[cfg(feature = "std")]
-impl Monitor for VCSMonitor {
-    /// the client monitor, mutable
-    fn client_stats_mut(&mut self) -> &mut Vec<ClientStats> {
-        &mut self.client_stats
-    }
-
-    /// the client monitor
-    fn client_stats(&self) -> &[ClientStats] {
-        &self.client_stats
-    }
-
-    /// Time this fuzzing run stated
-    fn start_time(&mut self) -> Duration {
-        self.start_time
-    }
-
-    fn display(&mut self, event_msg: String, sender_id: u32) {
-        println!(
-            "[{} #{}] run time: {}, clients: {}, corpus: {}, objectives: {}, executions: {}, exec/sec: {}",
-            event_msg,
-            sender_id,
-            format_duration_hms(&(current_time() - self.start_time)),
-            self.client_stats().len(),
-            self.corpus_size(),
-            self.objective_size(),
-            self.total_execs(),
-            self.execs_per_sec(),
-            // self.execs_per_sec_pretty(),
-        );
-
-        let mut id = 0;
-        for client in self.client_stats_mut() {
-            let coverage = client.get_user_stats("coverage").unwrap();
-            println!("Client {} -> {} % coverage score.", id, coverage);
-            id += 1;
-        }
-        println!();
-
-        // Only print perf monitor if the feature is enabled
-        #[cfg(feature = "introspection")]
-        {
-            // Print the client performance monitor.
-            println!(
-                "Client {:03}:\n{}",
-                sender_id, self.client_stats[sender_id as usize].introspection_monitor
-            );
-            // Separate the spacing just a bit
-            println!();
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
         }
     }
+    Ok(())
 }
+
+pub fn simv_spawn_child<I: Input + HasTargetBytes>(input: &I, _workdir: String, executable: String, args: String) -> Result<std::process::Child> { 
+    let do_steps = || -> Result<()> {
+
+        let mut file = File::create("testcase")?;
+        let hex_input = input.target_bytes();
+        let hex_input2 = hex_input.as_slice();
+        for i in 0..hex_input2.len()-1 {
+            let c: char = hex_input2[i].try_into().unwrap();
+            write!(file, "{}", c as char)?;
+        }
+        Ok(())
+    };
+
+    if let Err(_err) = do_steps() {
+        println!("VCSExecutor failed to create new input file, please check output argument");
+    }
+
+    let mut command = pcmd::new(executable.as_str());
+    
+    let args_vec: Vec<&str> = args.as_str().split(' ').collect();
+    let args_v = &args_vec[0 .. args_vec.len()];
+
+    let command = command.args(args_v);
+
+    let command = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let child = command.spawn().expect("failed to start process");
+
+    Ok(child)
+}
+
 
 #[allow(clippy::similar_names)]
 pub fn main() {
 
-    let res = clap_cmd::new("forkserver_simple")
-        .about("Example Forkserver fuzer")
-        .arg(
-            Arg::new("executable")
-                .help("The instrumented binary we want to fuzz")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("corpus")
-                .help("The directory to read initial inputs from ('seeds')")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("vdb")
-                .help("The path to the vdb directory")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("outdir")
-                .help("The directory to write the outputs to")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("timeout")
-                .help("Timeout for each individual execution, in milliseconds")
-                .short('t')
-                .long("timeout")
-                .default_value("1200"),
-        )
-        .arg(
-            Arg::new("debug_child")
-                .help("If not set, the child's stdout and stderror will be redirected to /dev/null")
-                .short('d')
-                .long("debug-child"),
-        )
-        .arg(
-            Arg::new("arguments")
-                .help("Arguments passed to the target")
-                .multiple_values(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("signal")
-                .help("Signal used to stop child")
-                .short('s')
-                .long("signal")
-                .default_value("SIGKILL"),
-        )
-        .get_matches();
+    let cores = Cores::all().unwrap();
 
-    // const MAP_SIZE: usize = 65536;
-    // let mut shmem_provider = unix_shmem::MmapShMemProvider::new().unwrap();
-    // The coverage map shared between observer and executor
-    // The shared memory id is saved in __AFL_SHM_ID 
-    // let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
-    // shmem.write_to_env("__AFL_SHM_ID").unwrap();
-    // let shmem_id = shmem.id();
-    // let shmem_buf = shmem.as_mut_slice();
-
-    // Load user provided parameters
-    let executable = res.value_of("executable").unwrap().to_string();
-    let args = res.value_of("arguments").unwrap().to_string();
-    let vdb = res.value_of("vdb").unwrap().to_string();
+    #[cfg(target_vendor = "apple")]
+    let mut shmem_provider = UnixShMemProvider::new().unwrap();
+    #[cfg(not(target_vendor = "apple"))]
+    let shmem_provider = StdShMemProvider::new().unwrap();
+    let mut shmem_provider_client = shmem_provider.clone();
     
-    let mut outdir = res.value_of("outdir").unwrap().to_string();
-    outdir.push_str("/solutions");
-    let solution_dir = PathBuf::from(outdir);
+    let mon = MultiMonitor::new(|s| println!("{s}"));
+    // let mon = SimpleMonitor::new(|s| println!("{}", s));
+    // let mut mgr = SimpleEventManager::new(mon);
 
-    // The vcs observer observes the coverage metrics exposed by vcs
-    // The coverage is for now collected by another process since the lib is in c++
-    // But would be interesting to get everything at one place in the future
-    let map_size: usize = 42000;
+    let mut run_client = |_state: Option<_>, mut mgr, _core_id| {
 
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let verdi_observer = VerdiObserver::new("verdi_map", &outdir, map_size, &VerdiCoverageMetric::toggle);
+        let simv_name = "./lowrisc_ip_aes_0.6".to_string();
+        let simv_args = "+TESTCASE=testcase -cm tgl".to_string();
+        let vdb_name = "Coverage.vdb".to_string();
+        let simv_dir = "build".to_string();
+        let solution_dir = "solutions".to_string();
+        let _seeds_dir = "seeds".to_string();
 
-    let map_feedback = MaxMapFeedback::new_tracking(&verdi_observer, true, false);
+        let dir = env::temp_dir();
+        println!("Temporary directory: {}. Please, customize TMPDIR if needed.", dir.display());
+        
+        // get a unique temp-dir name
+        let tmp_dir = WorkDir::new("presifuzz_").expect("Unable to create temporary directory");
+        let workdir = tmp_dir.path().as_os_str().to_str().unwrap().to_string();
+        let seeds_dir = "seeds";
 
-    // Feedback to rate the interestingness of an input
-    // This one is composed by two Feedbacks in OR
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut feedback = feedback_or!(
-        VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir).
-        map_feedback
-    );
+        println!("PreSiFuzz v0.2 \n
+                 Author: Nassim Corteggiani \n
+                 Contact: nassim.corteggiani@intel.com \n
+                 \n\
+                 Environment Assumptions:         \n \
+                    * workdir: {}                 \n \
+                    * vdb name: {}                \n \
+                    * simv name: {}               \n \
+                    * simv args: {}               \n \
+                    * original simv directory: {} \n \
+                    * solution directory: {}      \n \
+                    * seeds directory: {}      \n \
+                ", workdir, vdb_name, simv_name, simv_args, simv_dir, solution_dir, seeds_dir);
+       
+        let src = simv_dir.clone();
+        let dst = workdir.clone();
+        copy_dir_all(&Path::new(&src), &Path::new(&dst))?;
 
-    // A feedback to choose if an input is a solution or not
-    // We want to do the same crash deduplication that AFL does
-    let mut objective = ();
+        let mut dst = workdir.clone();
+        dst.push_str("/seeds");
+        copy_dir_all(&seeds_dir, &Path::new(&dst))?;
 
-    // If not restarting, create a State from scratch
-    let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
-    let mut state = StdState::new(
-        // RNG
-        StdRand::with_seed(current_nanos()),
-        // Use on disk corpus, so that we keep trace of it
-        // Performance impact is negligeable as the target is way slower
-        InMemoryCorpus::<BytesInput>::new(),
-        // Corpus in which we store solutions (crashes in this example),
-        // on disk so the user can get them after stopping the fuzzer
-        OnDiskCorpus::new(&solution_dir).unwrap(),
-        // States of the feedbacks.
-        // The feedbacks can report the data that should persist in the State.
-        &mut feedback,
-        // Same for objective feedbacks
-        &mut objective,
-    )
-    .unwrap();
+        let mut src = workdir.clone();
+        src.push_str(&format!("/{}", vdb_name));
+        let mut dst = workdir.clone();
+        dst.push_str("/Virgin_coverage.vdb");
+        copy_dir_all(&Path::new(&src), &Path::new(&dst))?;
+        
+        std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
 
-    // The Monitor trait define how the fuzzer stats are displayed to the user
-    let mon = VCSMonitor::new();
+        const MAP_SIZE: usize = 38542;
 
-    // The event manager handle the various events generated during the fuzzing loop
-    // such as the notification of the addition of a new item to the corpus
-    let mut mgr = SimpleEventManager::new(mon);
+        let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
+        // shmem.write_to_env("__AFL_SHM_ID").unwrap();
+        let shmem_buf = shmem.as_mut_slice();
+        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
 
-    // A queue policy to get testcasess from the corpus
-    let scheduler = QueueScheduler::new();
+        let (mut feedback, verdi_observer) = 
+        {
+            let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &workdir, shmem_ptr, &VerdiCoverageMetric::Toggle, &"".to_string())};
 
-    // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
+            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &workdir);
+            // let feedback = MaxMapFeedback::new(&verdi_observer);
 
-    // let executable = res.value_of("executable").unwrap();
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut executor = vcs_executor::VCSExecutor { executable, args, outdir}.into_executor(tuple_list!(verdi_observer));
+            (feedback, verdi_observer)
+        };
 
-    // Load initial inputs from corpus
-    let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
-    state
-        .load_initial_inputs(&mut fuzzer, &mut executor, &mut mgr, &[corpus_dir])
-        .expect("Failed to load the initial corpus");
+        // A feedback to choose if an input is a solution or not
+        // We want to do the same crash deduplication that AFL does
+        let mut objective = ();
 
-    // Setup a mutational stage with a basic bytes mutator
-    let mutator = StdScheduledMutator::new(havoc_mutations());
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+        // If not restarting, create a State from scratch
+        let mut state = StdState::new(
+            // RNG
+            StdRand::with_seed(current_nanos()),
+            // Use on disk corpus, so that we keep trace of it
+            // Performance impact is negligeable as the target is way slower
+            InMemoryCorpus::<BytesInput>::new(),
+            // Corpus in which we store solutions (crashes in this example),
+            // on disk so the user can get them after stopping the fuzzer
+            OnDiskCorpus::new(&solution_dir).unwrap(),
+            // States of the feedbacks.
+            // The feedbacks can report the data that should persist in the State.
+            &mut feedback,
+            // Same for objective feedbacks
+            &mut objective,
+        )
+        .unwrap();
 
-    fuzzer
-        .fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)
-        .expect("Error in the fuzzing loop");
+        // A queue policy to get testcasess from the corpus
+        let scheduler = QueueScheduler::new();
+
+        // A fuzzer with feedbacks and a corpus scheduler
+        let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
+        
+        let mut simv_harness = |input: &BytesInput| {
+
+            let mut child = simv_spawn_child(input, workdir.clone(), simv_name.clone(), simv_args.clone()).expect("Unable to start simv!");
+
+            match child
+                .wait_timeout(Duration::from_secs(20))
+                .expect("waiting on child failed")
+                .map(|status| status.unix_signal())
+            {
+                Some(Some(9)) => {
+                    return ExitKind::Oom
+                },
+                Some(Some(_)) => {
+                    return ExitKind::Crash
+                },
+                Some(None) => {
+                    return ExitKind::Ok
+                },
+                None => {
+                    drop(child.kill());
+                    drop(child.wait());
+                    return ExitKind::Timeout
+                }
+            };
+        };
+
+        // Switch to InProcessExecutor for LLMP
+        // let mut executor = vcs_executor::VCSExecutor { executable: simv_name, args:simv_args, workdir: workdir}.into_executor(tuple_list!(verdi_observer));
+        let mut executor = TimeoutExecutor::new(
+            InProcessExecutor::new(
+                            &mut simv_harness,
+                            tuple_list!(verdi_observer),
+                            &mut fuzzer,
+                            &mut state,
+                            &mut mgr,
+            )?,
+            Duration::from_millis(20000),
+        );
+
+        // Load initial inputs from corpus
+        let corpus_dir = PathBuf::from(seeds_dir);
+        state
+            .load_initial_inputs(&mut fuzzer, &mut executor, &mut mgr, &[corpus_dir])
+            .expect("Failed to load the initial corpus");
+
+        // Setup a mutational stage with a basic bytes mutator
+        let mutator = StdScheduledMutator::new(havoc_mutations());
+        let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+
+        fuzzer
+            .fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)
+            .expect("Error in the fuzzing loop");
+
+        Ok(())
+    };
+
+    match Launcher::builder()
+        .configuration(EventConfig::AlwaysUnique)
+        .shmem_provider(shmem_provider)
+        .monitor(mon)
+        .run_client(&mut run_client)
+        .cores(&cores)
+        .broker_port(1337)
+        .stdout_file(Some("/dev/null"))
+        .build()
+        .launch()
+    {
+        Ok(()) => (),
+        Err(Error::ShuttingDown) => (),
+        Err(err) => panic!("Fuzzingg failed {err:?}"),
+    };
 
 }
 
