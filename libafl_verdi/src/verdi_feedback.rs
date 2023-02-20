@@ -86,49 +86,6 @@ where
 
         if interesting {
 
-            // self.history = observer.map().clone().to_vec();
-//
-            // let args = "-dir ./Coverage.vdb -full64 -format text -metric tgl -report ./urg_report";
-            // let mut command = pcmd::new("urg");
-            // let command = command.args(args.split(' '))
-                // .stdin(Stdio::piped())
-                // .stdout(Stdio::piped())
-                // .stderr(Stdio::piped());
-//
-            // let child = command.spawn().expect("failed to start process");
-//
-            // let output = command.output().expect("failed to start process");
-            // println!("status: {}", String::from_utf8_lossy(&output.stdout));
-            // println!("status: {}", String::from_utf8_lossy(&output.stderr));
-//
-            // let file = File::open("./urg_report/tests.txt").unwrap();
-//
-            // let reader = std::io::BufReader::new(file);
-//
-            // let lines: Vec<String> = reader
-                // .lines()
-                // .map(|line| line.expect("Something went wrong while parsing urg report"))
-                // .collect();
-//
-            // let lines = lines[4].split_whitespace();
-//
-            // let str_items: Vec<&str> = lines
-            // .map(|s| s)
-            // .collect();
-//
-            // println!("Coverage: {} \n", str_items[0]);
-//
-            // let score = str_items[0].parse::<f64>().unwrap();
-//
-            // manager.fire(
-                // state,
-                // Event::UpdateUserStats {
-                    // name: format!("coverage"),
-                    // value: UserStats::Float(score),
-                    // phantom: Default::default(),
-                // },
-            // )?;
-
             self.id += 1;
         }
         Ok(interesting)
