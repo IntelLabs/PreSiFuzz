@@ -72,6 +72,12 @@ where
         if self.score < observer.score() {
             self.score = observer.score();
 
+            for (i, item) in o_map.iter().enumerate().take(capacity) {
+                if self.history[i] < *item {
+                    self.history[i] = *item;
+                }
+            }
+
             // Save scrore into state
             manager.fire(
                 state,
