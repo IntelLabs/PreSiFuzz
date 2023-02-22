@@ -22,25 +22,25 @@ use libafl::bolts::AsSlice;
 use libafl::monitors::UserStats;
 use libafl::events::{Event};
 use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
-use num_traits::Bounded;
+
 extern crate fs_extra;
 
 /// Nop feedback that annotates execution time in the new testcase, if any
 /// for this Feedback, the testcase is never interesting (use with an OR).
 /// It decides, if the given [`TimeObserver`] value of a run is interesting.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct VerdiFeedback<T, const N: usize> {
-    history: Vec<T>,
+pub struct VerdiFeedback<const N: usize> 
+{
+    history: Vec<u32>,
     name: String,
     id: u32,
     outdir: String,
     score : f32
 }
 
-impl<S, T, const N: usize> Feedback<S> for VerdiFeedback<T, N>
+impl<S, const N: usize> Feedback<S> for VerdiFeedback<N>
 where
     S: UsesInput + HasClientPerfMonitor,
-    T: Bounded + Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug + PartialEq + std::cmp::PartialOrd + std::fmt::Display
 {
 
     #[allow(clippy::wrong_self_convention)]
@@ -56,7 +56,7 @@ where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>
     {
-        let observer = observers.match_name::<VerdiObserver<T, N>>(self.name()).unwrap();
+        let observer = observers.match_name::<VerdiObserver<N>>(self.name()).unwrap();
         let capacity = observer.cnt();
 
         let mut interesting : bool = false;
@@ -64,14 +64,21 @@ where
         let o_map = observer.my_map().as_slice();
 
         for (i, item) in o_map.iter().enumerate().take(capacity) {
+            if i == 0 {
+                continue;
+            }
+
             if self.history[i] < *item {
                 interesting = true; 
                 break;
             }
         }
 
-        if self.score < observer.score() {
-            self.score = observer.score();
+        let score = o_map[0];
+        let score = score as f32;
+
+        if self.score < score {
+            self.score = score;
 
             // Save scrore into state
             manager.fire(
@@ -115,20 +122,22 @@ where
     }
 }
 
-impl<T, const N: usize> Named for VerdiFeedback<T, N> {
+impl<const N: usize> Named for VerdiFeedback<N> 
+{
     #[inline]
     fn name(&self) -> &str {
         self.name.as_str()
     }
 }
 
-impl<T: Default, const N: usize> VerdiFeedback<T, N> {
+impl<const N: usize> VerdiFeedback<N> 
+{
     /// Creates a new [`VerdiFeedback`], deciding if the given [`VerdiObserver`] value of a run is interesting.
     #[must_use]
     pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {
-        let mut map = Vec::<T>::with_capacity(capacity);
+        let mut map = Vec::<u32>::with_capacity(capacity);
         for _i in 0..capacity {
-            map.push(T::default());
+            map.push(u32::default());
         }
         Self {
             name: name.to_string(),

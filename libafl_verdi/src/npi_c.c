@@ -47,7 +47,7 @@ extern "C" {
   npiCovHandle vdb_cov_init(const char* vdb_file_path);
   void vdb_cov_end(npiCovHandle db);
   void compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map);
-  float update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type);
+  void update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type);
   void npi_init();
   
   void npi_init() {
@@ -126,7 +126,7 @@ extern "C" {
 #endif
   }
 
-  float update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type) {
+  void update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type) {
 #ifdef DUMMY_LIB
     std::srand(std::time(nullptr));
 
@@ -143,10 +143,10 @@ extern "C" {
        }
     }
 
-    return 0.0;
+    return;
 #else
     CoverageMap cov_map;
-    cov_map.map = map;
+    cov_map.map = &map[1];
     cov_map.write_bit_index = 0;
     cov_map.write_byte_index = 0;
     cov_map.type = coverage_type;
@@ -167,7 +167,7 @@ extern "C" {
         merged_test = npi_cov_merge_test( merged_test, test );
         if ( merged_test == NULL )
         {
-          return 1;
+          return;
         }
       }
     }
@@ -179,7 +179,8 @@ extern "C" {
     npi_cov_close( db );
     npi_end();
 
-    return ((float)cov_map.covered / (float)cov_map.coverable) * 100.0;
+    // assumption: float is 4bytes length, fits in u32
+    map[0] = (uint32_t)(((float)cov_map.covered / (float)cov_map.coverable) * 100.0);
 #endif
   }
 
