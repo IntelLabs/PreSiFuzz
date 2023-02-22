@@ -35,7 +35,6 @@ extern "C" {
 
   typedef struct {
     uint32_t* map;
-    unsigned char write_bit_index;
     unsigned write_byte_index;
     unsigned type;
     unsigned size;
@@ -117,6 +116,9 @@ extern "C" {
     while ( (block = npi_cov_iter_next( iter )) )
     {
       int covered =  npi_cov_get( npiCovCovered, block, test );
+      if(covered < 0)
+        covered = 0;
+
       cov_map->coverable = cov_map->coverable + npi_cov_get( npiCovCoverable, block, NULL );
       cov_map->covered = cov_map->covered + covered;
 
@@ -146,9 +148,8 @@ extern "C" {
     return;
 #else
     CoverageMap cov_map;
-    cov_map.map = &map[1];
-    cov_map.write_bit_index = 0;
-    cov_map.write_byte_index = 0;
+    cov_map.map = map;
+    cov_map.write_byte_index = 1;
     cov_map.type = coverage_type;
     cov_map.size = map_size;
     cov_map.coverable = 0;
@@ -180,7 +181,16 @@ extern "C" {
     npi_end();
 
     // assumption: float is 4bytes length, fits in u32
-    map[0] = (uint32_t)(((float)cov_map.covered / (float)cov_map.coverable) * 100.0);
+    float score = 0.0;
+    if(cov_map.coverable != 0) {
+      score = (((float)cov_map.covered / (float)cov_map.coverable) * 100.0);
+    }
+    printf("score is %f\n", score);
+    printf("coverable is %d\n", cov_map.coverable);
+    printf("covered is %d\n", cov_map.covered);
+
+    map[0] = (uint32_t)score;
+
 #endif
   }
 
