@@ -17,12 +17,19 @@ use libafl::prelude::format_duration_hms;
 use libafl::prelude::ClientStats;
 use libafl::prelude::current_time;
 
+#[cfg(not(target_vendor = "apple"))]
+use libafl::bolts::shmem::StdShMemProvider;
+#[cfg(target_vendor = "apple")]
+use libafl::bolts::shmem::UnixShMemProvider;
+
 #[cfg(not(feature = "tui"))]
 use libafl::{
     bolts::{
         current_nanos,
         rands::StdRand,
         tuples::tuple_list,
+        shmem::{ShMem, ShMemProvider},
+        AsMutSlice
     },
     events::SimpleEventManager,
     fuzzer::{Fuzzer, StdFuzzer},
@@ -34,10 +41,11 @@ use libafl::{
     inputs::bytes::BytesInput,
 };
 use libafl::executors::command::CommandConfigurator;
-use libafl::prelude::MaxMapFeedback;
+// use libafl::prelude::MaxMapFeedback;
 
-// use libafl_verdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
-use libafl_verdi::verdi_observer::VerdiMapObserver;
+use libafl_verdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
+// use libafl_verdi::verdi_observer::VerdiMapObserver;
+use libafl_verdi::verdi_observer::VerdiShMapObserver;
 use libafl_verdi::verdi_observer::VerdiCoverageMetric;
 
 mod vcs_executor;
@@ -168,40 +176,33 @@ pub fn main() {
                 .default_value("SIGKILL"),
         )
         .get_matches();
+    const MAP_SIZE: usize = 65536 * 4;
 
-    // const MAP_SIZE: usize = 65536;
-    // let mut shmem_provider = unix_shmem::MmapShMemProvider::new().unwrap();
-    // The coverage map shared between observer and executor
-    // The shared memory id is saved in __AFL_SHM_ID 
-    // let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
-    // shmem.write_to_env("__AFL_SHM_ID").unwrap();
-    // let shmem_id = shmem.id();
-    // let shmem_buf = shmem.as_mut_slice();
+    //Coverage map shared between observer and executor
+    #[cfg(target_vendor = "apple")]
+    let mut shmem_provider = UnixShMemProvider::new().unwrap();
+    #[cfg(not(target_vendor = "apple"))]
+    let mut shmem_provider = StdShMemProvider::new().unwrap();
+    let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
+    //let the forkserver know the shmid
+    shmem.write_to_env("__AFL_SHM_ID").unwrap();
+    let shmem_buf = shmem.as_mut_slice();
+    let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
 
-    // Load user provided parameters
-    let args = res.value_of("arguments").unwrap().to_string();
-    
+    let (mut feedback, verdi_observer) = 
+    {
+        let outdir = res.value_of("outdir").unwrap().to_string();
+        let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &outdir, shmem_ptr, &VerdiCoverageMetric::Toggle)};
+
+        let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &outdir);
+        // let feedback = MaxMapFeedback::new(&verdi_observer);
+
+        (feedback, verdi_observer)
+    };
+
     let mut outdir = res.value_of("outdir").unwrap().to_string();
     outdir.push_str("/solutions");
     let solution_dir = PathBuf::from(outdir);
-
-    // The vcs observer observes the coverage metrics exposed by vcs
-    // The coverage is for now collected by another process since the lib is in c++
-    // But would be interesting to get everything at one place in the future
-    let map_size: usize = 42000;
-
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let verdi_observer = VerdiMapObserver::<u32>::new("verdi_map", &outdir, map_size, &VerdiCoverageMetric::Toggle);
-
-    let mut feedback = MaxMapFeedback::new(&verdi_observer);
-
-    // Feedback to rate the interestingness of an input
-    // This one is composed by two Feedbacks in OR
-    // let outdir = res.value_of("outdir").unwrap().to_string();
-    // let mut feedback = feedback_or!(
-        // VerdiFeedback::new_with_observer("verdi_map", map_size, &outdir).
-        // map_feedback
-    // );
 
     // A feedback to choose if an input is a solution or not
     // We want to do the same crash deduplication that AFL does
@@ -238,6 +239,7 @@ pub fn main() {
     // A fuzzer with feedbacks and a corpus scheduler
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
+    let args = res.value_of("arguments").unwrap().to_string();
     let executable = res.value_of("executable").unwrap();
     let outdir = res.value_of("outdir").unwrap().to_string();
     let mut executor = vcs_executor::VCSExecutor { executable: executable.to_string(), args, outdir}.into_executor(tuple_list!(verdi_observer));

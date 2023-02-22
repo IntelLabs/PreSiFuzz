@@ -20,7 +20,6 @@ use libafl::bolts::shmem::UnixShMemProvider;
 use libafl::monitors::tui::TuiMonitor;
 #[cfg(not(feature = "tui"))]
 use libafl::{
-    feedback_and_fast, feedback_or,
     bolts::{
         current_nanos,
         rands::StdRand,
@@ -29,10 +28,10 @@ use libafl::{
         AsMutSlice
     },
     events::SimpleEventManager,
-    feedbacks::{CrashFeedback, TimeFeedback},
+    // feedbacks::{TimeFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
-    monitors::SimpleMonitor,
-    observers::{TimeObserver},
+    // monitors::SimpleMonitor,
+    // observers::{TimeObserver},
     mutators::scheduled::{havoc_mutations, StdScheduledMutator},
     schedulers::QueueScheduler,
     stages::mutational::StdMutationalStage,
@@ -47,9 +46,9 @@ use libafl::prelude::ClientStats;
 use libafl::prelude::current_time;
 
 use libafl::executors::command::CommandConfigurator;
-use libafl::prelude::MaxMapFeedback;
+// use libafl::prelude::MaxMapFeedback;
 
-use libafl_verdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
+use libafl_verdi::verdi_feedback::VerdiFeedback;
 use libafl_verdi::verdi_observer::VerdiShMapObserver;
 use libafl_verdi::verdi_observer::VerdiCoverageMetric;
 
@@ -196,17 +195,15 @@ pub fn main() {
     //let the forkserver know the shmid
     shmem.write_to_env("__AFL_SHM_ID").unwrap();
     let shmem_buf = shmem.as_mut_slice();
-    println!("shmem_buf at addr {:p}", shmem_buf.as_mut_ptr());
     let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
 
     let (mut feedback, verdi_observer) = 
     {
         let outdir = res.value_of("outdir").unwrap().to_string();
-        // let verdi_observer = VerdiShMapObserver::<u32, MAP_SIZE>::new("verdi_map", &outdir, *shmem_ptr, &VerdiCoverageMetric::Toggle);
-        let verdi_observer = VerdiShMapObserver::<u32, {MAP_SIZE/4}>::from_mut_ptr("verdi_map", &outdir, shmem_ptr, &VerdiCoverageMetric::Toggle);
+        let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &outdir, shmem_ptr, &VerdiCoverageMetric::Toggle)};
 
-        let mut feedback = VerdiFeedback::<u32, {MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &outdir);
-        // let mut feedback = MaxMapFeedback::new(&verdi_observer);
+        let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &outdir);
+        // let feedback = MaxMapFeedback::new(&verdi_observer);
 
         (feedback, verdi_observer)
     };
@@ -214,7 +211,6 @@ pub fn main() {
     // Load user provided parameters
     let executable = res.value_of("executable").unwrap().to_string();
     let args = res.value_of("arguments").unwrap().to_string();
-    let vdb = res.value_of("vdb").unwrap().to_string();
     
     let mut outdir = res.value_of("outdir").unwrap().to_string();
     outdir.push_str("/solutions");
@@ -229,7 +225,7 @@ pub fn main() {
     // let verdi_observer = VerdiObserver::new("verdi_map", &vdb, map_size, &VerdiCoverageMetric::toggle);
 
     // Create an observation channel to keep track of the execution time
-    let time_observer = TimeObserver::new("time");
+    // let time_observer = TimeObserver::new("time");
 
     // Feedback to rate the interestingness of an input
     // This one is composed by two Feedbacks in OR
