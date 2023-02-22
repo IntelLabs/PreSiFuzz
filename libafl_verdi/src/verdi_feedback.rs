@@ -18,9 +18,10 @@ use libafl::{
     Error,
     feedbacks::Feedback
 };
+use libafl::bolts::AsSlice;
 use libafl::monitors::UserStats;
 use libafl::events::{Event};
-use crate::verdi_observer::VerdiMapObserver as VerdiObserver;
+use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
 use num_traits::Bounded;
 extern crate fs_extra;
 
@@ -28,7 +29,7 @@ extern crate fs_extra;
 /// for this Feedback, the testcase is never interesting (use with an OR).
 /// It decides, if the given [`TimeObserver`] value of a run is interesting.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct VerdiFeedback<T> {
+pub struct VerdiFeedback<T, const N: usize> {
     history: Vec<T>,
     name: String,
     id: u32,
@@ -36,10 +37,10 @@ pub struct VerdiFeedback<T> {
     score : f32
 }
 
-impl<S, T> Feedback<S> for VerdiFeedback<T>
+impl<S, T, const N: usize> Feedback<S> for VerdiFeedback<T, N>
 where
     S: UsesInput + HasClientPerfMonitor,
-    T: Bounded + Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug + PartialEq + std::cmp::PartialOrd
+    T: Bounded + Default + Copy + 'static + Serialize + serde::de::DeserializeOwned + Debug + PartialEq + std::cmp::PartialOrd + std::fmt::Display
 {
 
     #[allow(clippy::wrong_self_convention)]
@@ -55,12 +56,12 @@ where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>
     {
-        let observer = observers.match_name::<VerdiObserver<T>>(self.name()).unwrap();
+        let observer = observers.match_name::<VerdiObserver<T, N>>(self.name()).unwrap();
+        let capacity = observer.cnt();
 
-        let capacity = observer.cnt() as usize;
         let mut interesting : bool = false;
 
-        let o_map = observer.map();
+        let o_map = observer.my_map().as_slice();
 
         for (i, item) in o_map.iter().enumerate().take(capacity) {
             if self.history[i] < *item {
@@ -72,17 +73,11 @@ where
         if self.score < observer.score() {
             self.score = observer.score();
 
-            for (i, item) in o_map.iter().enumerate().take(capacity) {
-                if self.history[i] < *item {
-                    self.history[i] = *item;
-                }
-            }
-
             // Save scrore into state
             manager.fire(
                 state,
                 Event::UpdateUserStats {
-                    name: format!("coverage"),
+                    name: "coverage".to_string(),
                     value: UserStats::Float(self.score as f64),
                     phantom: Default::default(),
                 },
@@ -91,6 +86,13 @@ where
         }
 
         if interesting {
+
+            let o_map = observer.my_map().as_slice();
+            for (i, item) in o_map.iter().enumerate().take(capacity) {
+                if self.history[i] < *item {
+                    self.history[i] = *item;
+                }
+            }
 
             self.id += 1;
         }
@@ -113,14 +115,14 @@ where
     }
 }
 
-impl<T> Named for VerdiFeedback<T> {
+impl<T, const N: usize> Named for VerdiFeedback<T, N> {
     #[inline]
     fn name(&self) -> &str {
         self.name.as_str()
     }
 }
 
-impl<T: Default> VerdiFeedback<T> {
+impl<T: Default, const N: usize> VerdiFeedback<T, N> {
     /// Creates a new [`VerdiFeedback`], deciding if the given [`VerdiObserver`] value of a run is interesting.
     #[must_use]
     pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {

@@ -17,19 +17,13 @@ use core::{
 
 use ahash::AHasher;
 use serde::{Deserialize, Serialize};
-use hashbrown::{hash_map::Entry, HashMap};
 
-use libc::{c_uint, c_char, c_void};
 extern crate fs_extra;
-use fs_extra::dir::copy;
 use std::fs;
-use std::ffi::CString;
 
 use core::{
     hash::Hasher,
-    iter::Flatten,
-    marker::PhantomData,
-    slice::{from_raw_parts, Iter, IterMut},
+    slice::{from_raw_parts},
 };
 
 /// Compute the hash of a slice
@@ -48,9 +42,9 @@ fn hash_slice<T>(slice: &[T]) -> u64 {
 pub struct VerilatorObserver {
     name: String,
     vdb: String,
-    initial: usize,
+    initial: u32,
     cnt: usize,
-    map: Vec<usize>
+    map: Vec<u32>
 }
 
 impl VerilatorObserver {
@@ -62,13 +56,13 @@ impl VerilatorObserver {
             vdb: vdb.to_string(),
             initial: 0,
             cnt: size,
-            map: Vec::<usize>::with_capacity(size)
+            map: Vec::<u32>::with_capacity(size)
         }
     }
 
     /// Get a list ref
     #[must_use]
-    pub fn map(&self) -> &Vec<usize> {
+    pub fn map(&self) -> &Vec<u32> {
         self.map.as_ref()
     }
 
@@ -100,56 +94,13 @@ impl<I, S> Observer<I, S> for VerilatorObserver {
 
         unsafe {
             self.map.set_len(self.cnt);
-            
-            let contents: String = fs::read_to_string(self.vdb.clone())
-                .expect(&format!("Unable to open Verilator coverage file at {}", &self.vdb.clone()));
+ 
+            let contents: String = fs::read_to_string(&self.vdb)
+                .expect("Unable to open Verilator coverage file at");
 
             let mut idx = 0;
-            
-            // let mut covered = 0;
-            // let mut coverable = 0;
-            // let mut points = HashMap::<Vec<u8>, usize>::new();
 
-            // let i = 0;
             for line in contents.as_str().split('\n') {
-                // if line.as_bytes()[0] != b'C' {
-                    // continue;
-                // }
-                // let mut secspace = 3;
-                // for i in 0..(line.len() + 1) {
-                    // if line.as_bytes()[i] == b'\'' && line.as_bytes()[i + 1] == b' ' {
-                        // secspace = i;
-                        // break;
-                    // }
-                // }
-                // let point = &line.as_bytes()[3..(secspace - 3)];
-                // let hits = std::str::from_utf8(&line.as_bytes()[(secspace + 1)..line.len()]).unwrap();
-                // let hits: usize = hits.parse().unwrap();
-
-                // if point.iter().any(|&x| x == "hdl/aes_tb.sv") {
-                    // continue;
-                // }
-                // match points.entry(point.to_vec()) {
-                    // Entry::Occupied(e) => {
-                        // let idx = *e.get();
-                        // points[idx] = hits;
-                    // }
-                    // Entry::Vacant(e) => {
-                        // e.insert(self.map.len());
-                        // points.push(hits);
-                    // }
-                // }
-                // points.update([(point, hits)].iter().cloned().collect::<HashMap<Vec<u8>, usize>>());
-                // points.update([(point, hits)].iter().cloned().collect::<HashMap<Vec<u8>, usize>>());
-            // }
-            // covered = 0;
-            // for (point, hits) in &points {
-                // if hits as &u32 > 2 {
-                    // covered += 1;
-                // }
-            // }
-            // coverable = *(&points.len() as &usize);
-            // let score = (covered/coverable)*100;
 
                 //Starting here, the code comes from https://github.com/AFLplusplus/LibAFL/pull/966
                 if line.len() > 1 && line.as_bytes()[0] == b'C' {
@@ -160,17 +111,18 @@ impl<I, S> Observer<I, S> for VerilatorObserver {
                         }
                         separator -= 1;
                     }
-                    let (name, count) = line.as_bytes().split_at(separator);
-                    let name = Vec::from(&name[3..(name.len() - 2)]); // "C '...' "
+                    let count = line.as_bytes().split_at(separator).1;
+                    // let (name, count) = line.as_bytes().split_at(separator);
+                    // let name = Vec::from(&name[3..(name.len() - 2)]); // "C '...' "
                     let count: usize = std::str::from_utf8(count)
                         .map_err(|_| Error::illegal_state("Couldn't parse the coverage count value!"))?
                         .parse()?;
 
-                    let count : usize = (count).try_into().unwrap();
+                    let count : u32 = (count).try_into().unwrap();
                     self.map[idx] = count;
                     idx += 1;
                 }
-            //End here
+                //End here
             }
         }
 
@@ -195,7 +147,7 @@ impl HasLen for VerilatorObserver {
 }
 
 impl MapObserver for VerilatorObserver {
-    type Entry = usize;
+    type Entry = u32;
 
     fn get(&self, idx: usize) -> &Self::Entry {
         self.map.get(idx).unwrap()
@@ -239,7 +191,7 @@ impl MapObserver for VerilatorObserver {
 
     fn how_many_set(&self, indexes: &[usize]) -> usize {
         indexes
-            .into_iter()
+            .iter()
             .map(|&idx| self.get(idx))
             .filter(|&&e| e != self.initial())
             .count()
@@ -247,7 +199,7 @@ impl MapObserver for VerilatorObserver {
 }
 
 impl<'it> AsIter<'it> for VerilatorObserver {
-    type Item = usize;
+    type Item = u32;
     type IntoIter = core::slice::Iter<'it, Self::Item>;
 
     fn as_iter(&'it self) -> Self::IntoIter {

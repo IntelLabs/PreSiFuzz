@@ -20,17 +20,13 @@ use libafl::{
 };
 use crate::verilator_observer::VerilatorObserver;
 extern crate fs_extra;
-use fs_extra::dir::copy;
-use std::fs;
-use std::process::Command;
-use std::collections::HashSet;
 
 /// Nop feedback that annotates execution time in the new testcase, if any
 /// for this Feedback, the testcase is never interesting (use with an OR).
 /// It decides, if the given [`TimeObserver`] value of a run is interesting.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VerilatorFeedback {
-    history: Vec<usize>,
+    history: Vec<u32>,
     name: String,
     id: usize,
     outdir: String,
@@ -56,67 +52,20 @@ where
     {
         let observer = observers.match_name::<VerilatorObserver>(self.name()).unwrap();
 
-        let capacity = observer.cnt() as usize;
+        let capacity = observer.cnt();
         let mut interesting : bool = false;
 
         let o_map = observer.map();
 
         for (i, item) in o_map.iter().enumerate().take(capacity) {
-            if self.history[i] < (*item).try_into().unwrap() {
+            if self.history[i] < *item {
                 interesting = true; 
                 break;
             }
         }
 
-        println!("is Interesting? {:?}", interesting);
         if interesting {
             self.history = observer.map().clone().to_vec();
-        
-            let dir = "/home/nasm/Projects/HW_Fuzzing/research.security.fuzzing.hardware-fuzzing/fuzzers/opentitan-fuzzer-verilator-hw-cov";
-            std::env::set_current_dir(dir).expect("Unable to change into {dir}");
-
-            if self.id == 0 {
-                let cmd = format!("verilator_coverage --write ./solutions/merged_{}.dat ./logs/coverage.dat", self.id);
-                println!("{}", cmd);
-                let cmd = cmd.split_whitespace();
-
-                let cmd_items: Vec<&str> = cmd.collect::<Vec<&str>>();;
-                let mut command = Command::new(cmd_items[0]);
-                let mut command = command.args(&cmd_items[1..]);
-                let mut child = command.spawn().expect("failed to run verilator_coverage");
-               
-            } else {
-                let mut reports = String::from(format!("verilator_coverage --write ./solutions/merged_{}.dat ./logs/coverage.dat", self.id));
-                for i in 0..self.id {
-                    reports.push_str(format!(" solutions/merged_{}.dat ", i).as_str());
-                }
-                println!("{}", reports);
-                let cmd = reports.split_whitespace();
-
-                let cmd_items: Vec<&str> = cmd.collect::<Vec<&str>>();;
-                let mut command = Command::new(cmd_items[0]);
-                let mut command = command.args(&cmd_items[1..]);
-                let mut child = command.spawn().expect("failed to run verilator_coverage");
-
-            }
-
-//
-            // let mut options = fs_extra::dir::CopyOptions::new();
-            // options.content_only = true;
-//
-            // let mut backup_dir_name = self.outdir.to_string();
-//
-            // backup_dir_name.push_str(&format!("../backup_{}", self.id));
-//
-            // let new_outdir = backup_dir_name.clone();
-            // fs::create_dir(new_outdir)?;
-//
-            // let new_outdir = backup_dir_name.clone();
-            // let ret = copy(&self.outdir, new_outdir, &options);
-            // if let Err(e) = ret {
-                // return Err(Error::illegal_state(format!("{:?}", e)))
-            // }
-//
             self.id += 1;
         }
         Ok(interesting)
@@ -146,7 +95,7 @@ impl VerilatorFeedback {
     /// Creates a new [`VerilatorFeedback`], deciding if the given [`VerilatorObserver`] value of a run is interesting.
     #[must_use]
     pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {
-        let mut map = Vec::<usize>::with_capacity(capacity);
+        let mut map = Vec::<u32>::with_capacity(capacity);
         for _i in 0..capacity {
             map.push(0);
         }

@@ -48,10 +48,11 @@ extern "C" {
   void vdb_cov_end(npiCovHandle db);
   void compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map);
   float update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type);
-
-  npiCovHandle vdb_cov_init(const char* vdb_file_path) {
+  void npi_init();
+  
+  void npi_init() {
 #ifdef DUMMY_LIB
-    return 0;
+    return;
 #else
     int argcv = 1;
     int& argc = argcv;
@@ -65,7 +66,13 @@ extern "C" {
     char**& argv = p_args;
 
     npi_init(argc, argv);
+#endif
+  }
 
+  npiCovHandle vdb_cov_init(const char* vdb_file_path) {
+#ifdef DUMMY_LIB
+    return 0;
+#else
     npiCovHandle db = npi_cov_open( vdb_file_path );
 
     return db;
@@ -184,13 +191,15 @@ extern "C" {
 #ifdef C_APP
 int main(int argc, char** argv) {
 
+  npi_init();
+
   void* db = vdb_cov_init(argv[1]);
 
   unsigned size = 41678;
   // unsigned size = 41678;
   uint32_t map[size] = {0};
 
-  update_cov_map(db, (uint32_t*) &map, size, 5);
+  update_cov_map(db, &map, size, 5);
 
   printf("[");
   unsigned i;
