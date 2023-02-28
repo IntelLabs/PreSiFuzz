@@ -60,8 +60,8 @@ pub struct VerdiMapObserver
 
 #[derive(Copy, Clone)]
 pub enum VerdiCoverageMetric {
-    Toggle = 4,
-    Line = 5
+    Toggle = 5,
+    Line = 4
 }
 
 impl VerdiMapObserver
