@@ -71,7 +71,7 @@ impl VerdiMapObserver
     #[must_use]
     pub fn new(name: &'static str, workdir: &String, size: usize, metric: &VerdiCoverageMetric) -> Self {
 
-        unsafe { npi_init();}
+        // unsafe { npi_init();}
         Self {
             name: name.to_string(),
             initial: u32::default(),
@@ -200,6 +200,8 @@ where
                 let pmap = self.map.as_mut_ptr();
                 self.map.set_len(self.cnt);
 
+                npi_init();
+
                 let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
                 let db = vdb_cov_init(vdb.as_ptr());
 
@@ -278,9 +280,9 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     #[must_use]
     pub fn new(name: &'static str, workdir: &String, map: &'a mut [u32], metric: &VerdiCoverageMetric) -> Self {
         assert!(map.len() >= N);
-        unsafe {
-            npi_init();
-        }
+        // unsafe {
+            // npi_init();
+        // }
         Self {
             name: name.to_string(),
             initial: u32::default(),
@@ -298,7 +300,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     #[must_use]
     pub unsafe fn from_mut_ptr(name: &'static str, workdir: &String, map_ptr: *mut u32, metric: &VerdiCoverageMetric) -> Self
     {
-        npi_init();
+        // npi_init();
 
         Self {
             name: name.to_string(),
@@ -453,6 +455,9 @@ where
             }
             Ok(ForkResult::Child) => {
                 unsafe {
+
+                    npi_init();
+
                     let db = vdb_cov_init(vdb.as_ptr());
                     
                     update_cov_map(db, pmap as *mut c_uint, N as c_uint, self.metric as c_uint);
