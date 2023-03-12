@@ -22,6 +22,7 @@ use libafl::bolts::AsSlice;
 use libafl::monitors::UserStats;
 use libafl::events::{Event};
 use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
+use std::process::Command;
 
 extern crate fs_extra;
 
@@ -34,7 +35,7 @@ pub struct VerdiFeedback<const N: usize>
     history: Vec<u32>,
     name: String,
     id: u32,
-    outdir: String,
+    workdir: String,
     score : f32
 }
 
@@ -101,6 +102,32 @@ where
                 }
             }
 
+            let mut backup_path = self.workdir.clone();
+            backup_path.push_str(&format!("/backup_{}", self.id));
+
+            // backup the vdb folder
+            Command::new("cp")
+                .arg("-R")
+                .arg("./Coverage.vdb")
+                .arg(backup_path)
+                .spawn()
+                .expect("Verdi feedback failed to backup Coverage.vdb");
+
+            // Clean existing vdb
+            Command::new("rm")
+                .arg("-rf")
+                .arg("./Coverage.vdb")
+                .spawn()
+                .expect("Verdi feedback failed to remove vdb folder during cleaning phase");
+
+            // Copy virgin vdb
+            Command::new("cp")
+                .arg("-r")
+                .arg("./Virgin_coverage.vdb")
+                .arg("./Coverage.vdb")
+                .spawn()
+                .expect("Verdi feedback failed to copy virgin root vdb (expect Virgin_coverage.vdb)");
+
             self.id += 1;
         }
         Ok(interesting)
@@ -134,7 +161,7 @@ impl<const N: usize> VerdiFeedback<N>
 {
     /// Creates a new [`VerdiFeedback`], deciding if the given [`VerdiObserver`] value of a run is interesting.
     #[must_use]
-    pub fn new_with_observer(name: &'static str, capacity: usize, outdir: &String) -> Self {
+    pub fn new_with_observer(name: &'static str, capacity: usize, workdir: &String) -> Self {
         let mut map = Vec::<u32>::with_capacity(capacity);
         for _i in 0..capacity {
             map.push(u32::default());
@@ -143,7 +170,7 @@ impl<const N: usize> VerdiFeedback<N>
             name: name.to_string(),
             history: map,
             id: 0,
-            outdir: outdir.to_string(),
+            workdir: workdir.to_string(),
             score: 0.0
         }
     }
