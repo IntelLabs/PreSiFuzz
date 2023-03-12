@@ -106,27 +106,30 @@ where
             backup_path.push_str(&format!("/backup_{}", self.id));
 
             // backup the vdb folder
-            Command::new("cp")
-                .arg("-R")
+            let mut child = Command::new("cp")
+                .arg("-r")
                 .arg("./Coverage.vdb")
                 .arg(backup_path)
                 .spawn()
                 .expect("Verdi feedback failed to backup Coverage.vdb");
+            let _result = child.wait().unwrap();
 
             // Clean existing vdb
-            Command::new("rm")
+            let mut child = Command::new("rm")
                 .arg("-rf")
                 .arg("./Coverage.vdb")
                 .spawn()
                 .expect("Verdi feedback failed to remove vdb folder during cleaning phase");
+            let _result = child.wait().unwrap();
 
             // Copy virgin vdb
-            Command::new("cp")
+            let mut child = Command::new("cp")
                 .arg("-r")
                 .arg("./Virgin_coverage.vdb")
                 .arg("./Coverage.vdb")
                 .spawn()
                 .expect("Verdi feedback failed to copy virgin root vdb (expect Virgin_coverage.vdb)");
+            let _result = child.wait().unwrap();
 
             self.id += 1;
         }
