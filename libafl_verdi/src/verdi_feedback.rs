@@ -84,7 +84,7 @@ where
             let mut covered = 0; 
 
             let o_map = observer.my_map().as_slice();
-            for (i, item) in o_map.iter().enumerate().take(capacity) {
+            for (i, item) in o_map.iter().enumerate().filter(|&(i,_)| i>=2).take(capacity) {
                 if self.history[i] < *item {
                     self.history[i] = *item;
                     covered += *item;
