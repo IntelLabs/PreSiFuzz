@@ -74,13 +74,27 @@ where
                 break;
             }
         }
+            
+        let covered = o_map[0]; 
+        let uncovered = o_map[1];
+        
 
-        let score = o_map[0];
-        let score = score as f32;
+        if interesting {
+        
+            let mut covered = 0; 
 
-        if self.score < score {
-            self.score = score;
-
+            let o_map = observer.my_map().as_slice();
+            for (i, item) in o_map.iter().enumerate().take(capacity) {
+                if self.history[i] < *item {
+                    self.history[i] = *item;
+                    covered += *item;
+                } else {
+                    covered += self.history[i];
+                }
+            }
+        
+            self.score = (covered as f32 / uncovered as f32) * 100.0;
+ 
             // Save scrore into state
             manager.fire(
                 state,
@@ -91,48 +105,38 @@ where
                 },
             )?;
 
-        }
-
-        if interesting {
-
-            let o_map = observer.my_map().as_slice();
-            for (i, item) in o_map.iter().enumerate().take(capacity) {
-                if self.history[i] < *item {
-                    self.history[i] = *item;
-                }
-            }
-
             let mut backup_path = self.workdir.clone();
             backup_path.push_str(&format!("/backup_{}", self.id));
 
             // backup the vdb folder
-            let mut child = Command::new("cp")
+            assert!(Command::new("cp")
                 .arg("-r")
                 .arg("./Coverage.vdb")
                 .arg(backup_path)
-                .spawn()
-                .expect("Verdi feedback failed to backup Coverage.vdb");
-            let _result = child.wait().unwrap();
+                .status()
+                .unwrap()
+                .success());
 
             // Clean existing vdb
-            let mut child = Command::new("rm")
+            assert!(Command::new("rm")
                 .arg("-rf")
                 .arg("./Coverage.vdb")
-                .spawn()
-                .expect("Verdi feedback failed to remove vdb folder during cleaning phase");
-            let _result = child.wait().unwrap();
+                .status()
+                .unwrap()
+                .success());
 
             // Copy virgin vdb
-            let mut child = Command::new("cp")
+            assert!(Command::new("cp")
                 .arg("-r")
                 .arg("./Virgin_coverage.vdb")
                 .arg("./Coverage.vdb")
-                .spawn()
-                .expect("Verdi feedback failed to copy virgin root vdb (expect Virgin_coverage.vdb)");
-            let _result = child.wait().unwrap();
+                .status()
+                .unwrap()
+                .success());
 
             self.id += 1;
         }
+
         Ok(interesting)
     }
 

@@ -41,7 +41,7 @@ extern "C" {
 
     fn vdb_cov_end(db: NpiCovHandle) -> c_void;
 
-    fn update_cov_map(db: NpiCovHandle, map: *mut c_uint, map_size: c_uint, coverage_type: c_uint) -> c_void;
+    fn update_cov_map(db: NpiCovHandle, map: *mut c_uint, map_size: c_uint, coverage_type: c_uint, filter: *const c_char) -> c_void;
 
     fn npi_init() -> c_void;
 }
@@ -56,6 +56,7 @@ pub struct VerdiMapObserver
     map: Vec<u32>, 
     workdir: String,
     metric: u32,
+    filter: String
 }
 
 #[derive(Copy, Clone)]
@@ -69,7 +70,7 @@ impl VerdiMapObserver
 
     /// Creates a new [`VerdiMapObserver`] with the given name.
     #[must_use]
-    pub fn new(name: &'static str, workdir: &String, size: usize, metric: &VerdiCoverageMetric) -> Self {
+    pub fn new(name: &'static str, workdir: &String, size: usize, metric: &VerdiCoverageMetric, filter: &String) -> Self {
 
         // unsafe { npi_init();}
         Self {
@@ -79,6 +80,7 @@ impl VerdiMapObserver
             map: Vec::<u32>::with_capacity(size),
             workdir: workdir.to_string(),
             metric: *metric as u32,
+            filter: filter.to_string()
         }
     }
 
@@ -204,8 +206,12 @@ where
 
                 let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
                 let db = vdb_cov_init(vdb.as_ptr());
-
-                update_cov_map(db, pmap as *mut c_uint, self.cnt as c_uint, self.metric as c_uint);
+                if( (db as usize) == 0) {
+                    panic!("Unable to open vdb!");
+                }
+                
+                let filter = CString::new(self.filter.as_str()).expect("CString::new failed");
+                update_cov_map(db, pmap as *mut c_uint, self.cnt as c_uint, self.metric as c_uint, filter.as_ptr());
 
                 vdb_cov_end(db);
             }
@@ -268,6 +274,7 @@ pub struct VerdiShMapObserver<'a, const N: usize>
     map: OwnedMutSlice<'a, u32>,
     workdir: String,
     metric: u32,
+    filter: String
 }
 
 impl<'a, const N: usize> VerdiShMapObserver<'a, N>
@@ -278,7 +285,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     /// Will get a pointer to the map and dereference it at any point in time.
     /// The map must not move in memory!
     #[must_use]
-    pub fn new(name: &'static str, workdir: &String, map: &'a mut [u32], metric: &VerdiCoverageMetric) -> Self {
+    pub fn new(name: &'static str, workdir: &String, map: &'a mut [u32], metric: &VerdiCoverageMetric, filter: &String) -> Self {
         assert!(map.len() >= N);
         // unsafe {
             // npi_init();
@@ -290,6 +297,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
             map: OwnedMutSlice::from(map),
             workdir: workdir.to_string(),
             metric: *metric as u32,
+            filter: filter.to_string()
         }
     }
 
@@ -298,7 +306,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     /// # Safety
     /// Will dereference the `map_ptr` with up to len elements.
     #[must_use]
-    pub unsafe fn from_mut_ptr(name: &'static str, workdir: &String, map_ptr: *mut u32, metric: &VerdiCoverageMetric) -> Self
+    pub unsafe fn from_mut_ptr(name: &'static str, workdir: &String, map_ptr: *mut u32, metric: &VerdiCoverageMetric, filter: &String) -> Self
     {
         // npi_init();
 
@@ -309,6 +317,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
             map: OwnedMutSlice::from_raw_parts_mut(map_ptr, N),
             workdir: workdir.to_string(),
             metric: *metric as u32,
+            filter: filter.to_string()
         }
     }
 
@@ -451,7 +460,13 @@ where
 
         match unsafe{fork()} {
             Ok(ForkResult::Parent{child, ..}) => {
-                waitpid(child, None).unwrap();
+                match waitpid(child, None) {
+                   v => return Ok(()),
+                   Err(e) => {
+                       println!("libafl_verdi failed to parse vdb using libNPI.so ...");
+                       return Ok(());
+                    }
+                }
             }
             Ok(ForkResult::Child) => {
                 unsafe {
@@ -459,8 +474,12 @@ where
                     npi_init();
 
                     let db = vdb_cov_init(vdb.as_ptr());
-                    
-                    update_cov_map(db, pmap as *mut c_uint, N as c_uint, self.metric as c_uint);
+                    if( (db as usize) == 0) {
+                        panic!("Unable to open vdb!");
+                    }
+
+                    let filter = CString::new(self.filter.as_str()).expect("CString::new failed");
+                    update_cov_map(db, pmap as *mut c_uint, N as c_uint, self.metric as c_uint, filter.as_ptr());
 
                     vdb_cov_end(db);
 
@@ -519,5 +538,90 @@ where
     }
 }
 
+#[cfg(feature = "std")]
+#[cfg(test)]
+mod tests {
 
+    extern crate fs_extra;
+    use std::{
+        str,
+        hash::Hasher,
+        ffi::{CString},
+    };
+    use libc::{c_uint, c_char, c_void};
+    use nix::{sys::wait::waitpid,unistd::{fork, ForkResult}};
+    use std::process;
+    use crate::verdi_observer::*;
+    use libafl::prelude::StdShMemProvider;
+    use libafl::{bolts::{shmem::{ShMem, ShMemProvider}}};
 
+    const MAP_SIZE: usize = 65536 * 4;
+
+    #[test]
+    fn test_verdi_observer() {
+
+        // score is 36.904034
+        // coverable is 19632
+        // covered is 7245
+    
+        #[cfg(target_vendor = "apple")]
+        let mut shmem_provider = UnixShMemProvider::new().unwrap();
+        #[cfg(not(target_vendor = "apple"))]
+        let mut shmem_provider = StdShMemProvider::new().unwrap();
+        let mut shmem_provider_client = shmem_provider.clone();
+        
+        let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
+        let shmem_buf = shmem.as_mut_slice();
+        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
+
+        let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
+
+        match unsafe{fork()} {
+            Ok(ForkResult::Parent{child, ..}) => {
+                match waitpid(child, None) {
+                   v => {},
+                   Err(e) => {
+                       println!("libafl_verdi failed to parse vdb using libNPI.so ...");
+                    }
+                }
+            }
+            Ok(ForkResult::Child) => {
+                unsafe {
+
+                    npi_init();
+
+                    let db = vdb_cov_init(vdb.as_ptr());
+                    if( (db as usize) == 0) {
+                        panic!("Unable to open vdb!");
+                    }
+
+                    let filter = CString::new("tb.dut").expect("CString::new failed");
+                    update_cov_map(db, shmem_ptr as *mut c_uint, MAP_SIZE as c_uint, 5 as c_uint, filter.as_ptr());
+
+                    vdb_cov_end(db);
+
+                    unsafe {
+                        let score: f32 = (*shmem_ptr / *shmem_ptr.add(1)) as f32 * 100.0;
+                        println!("Score is {}", score);
+                    }
+
+                    process::exit(0);
+                }
+            },
+            Err(_) => {
+                panic!("libafl_verdi failed to fork to invoke libNPI.so ...");
+            }
+        }
+        unsafe {
+            let covered = *shmem_ptr; 
+            let uncovered = *shmem_ptr.add(1);
+
+            let score: f32 = (covered as f32 / uncovered as f32) * 100.0;
+            println!("Score is {} {}/{}", score, covered, uncovered);
+
+            assert!(score == 36.904034);
+        }
+
+        return;
+    }
+}
