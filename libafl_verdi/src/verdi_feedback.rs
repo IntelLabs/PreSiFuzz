@@ -117,25 +117,25 @@ where
                 .unwrap()
                 .success());
 
-            // Clean existing vdb
-            assert!(Command::new("rm")
-                .arg("-rf")
-                .arg("./Coverage.vdb")
-                .status()
-                .unwrap()
-                .success());
-
-            // Copy virgin vdb
-            assert!(Command::new("cp")
-                .arg("-r")
-                .arg("./Virgin_coverage.vdb")
-                .arg("./Coverage.vdb")
-                .status()
-                .unwrap()
-                .success());
-
             self.id += 1;
         }
+
+        // Clean existing vdb
+        assert!(Command::new("rm")
+            .arg("-rf")
+            .arg("./Coverage.vdb")
+            .status()
+            .unwrap()
+            .success());
+
+        // Copy virgin vdb
+        assert!(Command::new("cp")
+            .arg("-r")
+            .arg("./Virgin_coverage.vdb")
+            .arg("./Coverage.vdb")
+            .status()
+            .unwrap()
+            .success());
 
         Ok(interesting)
     }
