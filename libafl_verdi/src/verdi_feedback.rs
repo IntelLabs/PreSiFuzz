@@ -92,6 +92,7 @@ where
                     covered += self.history[i];
                 }
             }
+            self.history[0] = covered;
         
             self.score = (covered as f32 / uncovered as f32) * 100.0;
  
