@@ -26,19 +26,16 @@ pub struct VCSExecutor
 {
     pub executable: String,
     pub args: String,
-    pub outdir: String
+    pub workdir: String
 }
 
 impl CommandConfigurator for VCSExecutor
 { 
     fn spawn_child<I: Input + HasTargetBytes>(&mut self, input: &I) -> Result<Child, Error> {
         
-        let mut input_filename = self.outdir.clone();
-        input_filename.push_str("/fuzz_input.hex");
-
         let do_steps = || -> Result<(), Error> {
 
-            let mut file = File::create(input_filename)?;
+            let mut file = File::create("testcase")?;
             let hex_input = input.target_bytes();
             let hex_input2 = hex_input.as_slice();
             for i in 0..hex_input2.len()-1 {
@@ -52,9 +49,6 @@ impl CommandConfigurator for VCSExecutor
             println!("VCSExecutor failed to create new input file, please check output argument");
         }
 
-        let dir = Path::new(self.executable.as_str()).parent().unwrap();
-        std::env::set_current_dir(dir).expect("Unable to change into {dir}");
-
         let mut command = pcmd::new(self.executable.as_str());
 
         let command = command
@@ -67,8 +61,9 @@ impl CommandConfigurator for VCSExecutor
 
         let child = command.spawn().expect("failed to start process");
 
-        // let output = command.output().expect("failed to start process");
-        // println!("status: {}", String::from_utf8_lossy(&output.stdout));
+        let output = command.output().expect("failed to start process");
+        println!("status: {}", String::from_utf8_lossy(&output.stdout));
+        // println!("status: {}", String::from_utf8_lossy(&output.stderr));
 
         Ok(child)
     }

@@ -25,3 +25,6 @@ ahash = { version = "0.7", default-features=false, features=["compile-time-rng"]
 intervaltree = { version = "0.2.7", default-features = false, features = ["serde"] }
 libc = "0.2"
 fs_extra = "1.2.0"
+tempdir = "0.3.7"
+
+

@@ -40,6 +40,9 @@ use libafl::{
     corpus::{OnDiskCorpus, InMemoryCorpus},
     inputs::bytes::BytesInput,
 };
+use std::env;
+use std::path::Path;
+use tempdir::TempDir;
 use libafl::executors::command::CommandConfigurator;
 // use libafl::prelude::MaxMapFeedback;
 
@@ -49,6 +52,40 @@ use libafl_verdi::verdi_observer::VerdiShMapObserver;
 use libafl_verdi::verdi_observer::VerdiCoverageMetric;
 
 mod vcs_executor;
+
+#[derive(Debug)]
+pub struct WorkDir(Option<TempDir>);
+
+// Forward inherent methods to the tempdir crate.
+use std::io::Result;
+impl WorkDir {
+    pub fn new(prefix: &str) -> Result<WorkDir>
+    { TempDir::new(prefix).map(Some).map(WorkDir) }
+
+    pub fn path(&self) -> &Path
+    { self.0.as_ref().unwrap().path() }
+}
+
+/// Leaks the inner TempDir if we are unwinding.
+impl Drop for WorkDir {
+    fn drop(&mut self) {
+        ::std::mem::forget(self.0.take())
+    }
+}
+
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
 
 #[cfg(feature = "std")]
 /// Tracking monitor during fuzzing that just prints to `stdout`.
@@ -123,86 +160,65 @@ impl Monitor for VCSMonitor {
 #[allow(clippy::similar_names)]
 pub fn main() {
 
-    let res = clap_cmd::new("forkserver_simple")
-        .about("Example Forkserver fuzer")
-        .arg(
-            Arg::new("executable")
-                .help("The instrumented binary we want to fuzz")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("corpus")
-                .help("The directory to read initial inputs from ('seeds')")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("vdb")
-                .help("The path to the vdb directory")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("outdir")
-                .help("The directory to write the outputs to")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("timeout")
-                .help("Timeout for each individual execution, in milliseconds")
-                .short('t')
-                .long("timeout")
-                .default_value("1200"),
-        )
-        .arg(
-            Arg::new("debug_child")
-                .help("If not set, the child's stdout and stderror will be redirected to /dev/null")
-                .short('d')
-                .long("debug-child"),
-        )
-        .arg(
-            Arg::new("arguments")
-                .help("Arguments passed to the target")
-                .multiple_values(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("signal")
-                .help("Signal used to stop child")
-                .short('s')
-                .long("signal")
-                .default_value("SIGKILL"),
-        )
-        .get_matches();
+    let simv_name = "./lowrisc_ip_aes_0.6".to_string();
+    let mut simv_args = "+TESTCASE=testcase -cm tgl".to_string();
+    let vdb_name = "Coverage.vdb".to_string();
+    let simv_dir = "build/lowrisc_ip_aes_0.6/syn-vcs/".to_string();
+    let solution_dir = "solutions".to_string();
+    let seeds_dir = "seeds".to_string();
+
+    let dir = env::temp_dir();
+    println!("Temporary directory: {}. Please, customize TMPDIR if needed.", dir.display());
+    
+    // get a unique temp-dir name
+    let tmp_dir = WorkDir::new("presifuzz_").expect("Unable to create temporary directory");
+    let workdir = tmp_dir.path().as_os_str().to_str().unwrap().to_string();
+    let seeds_dir = "seeds";
+
+    println!("PreSiFuzz v0.2 \n
+             Author: Nassim Corteggiani \n
+             Contact: nassim.corteggiani@intel.com \n
+             \n\
+             Environment Assumptions:         \n \
+                * workdir: {}                 \n \
+                * vdb name: {}                \n \
+                * simv name: {}               \n \
+                * simv args: {}               \n \
+                * original simv directory: {} \n \
+                * solution directory: {}      \n \
+                * seeds directory: {}      \n \
+            ", workdir, vdb_name, simv_name, simv_args, simv_dir, solution_dir, seeds_dir);
+    
+    let mut src = simv_dir.clone();
+    let mut dst = workdir.clone();
+    copy_dir_all(&Path::new(&src), &Path::new(&dst));
+    
+    let mut dst = workdir.clone();
+    dst.push_str("/seeds");
+    copy_dir_all(&seeds_dir, &Path::new(&dst));
+
+    std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
+
     const MAP_SIZE: usize = 65536 * 4;
 
-    //Coverage map shared between observer and executor
     #[cfg(target_vendor = "apple")]
     let mut shmem_provider = UnixShMemProvider::new().unwrap();
     #[cfg(not(target_vendor = "apple"))]
     let mut shmem_provider = StdShMemProvider::new().unwrap();
     let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
-    //let the forkserver know the shmid
     shmem.write_to_env("__AFL_SHM_ID").unwrap();
     let shmem_buf = shmem.as_mut_slice();
     let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
 
     let (mut feedback, verdi_observer) = 
     {
-        let outdir = res.value_of("outdir").unwrap().to_string();
-        let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &outdir, shmem_ptr, &VerdiCoverageMetric::Toggle)};
+        let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &workdir, shmem_ptr, &VerdiCoverageMetric::Toggle)};
 
-        let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &outdir);
+        let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &workdir);
         // let feedback = MaxMapFeedback::new(&verdi_observer);
 
         (feedback, verdi_observer)
     };
-
-    let mut outdir = res.value_of("outdir").unwrap().to_string();
-    outdir.push_str("/solutions");
-    let solution_dir = PathBuf::from(outdir);
 
     // A feedback to choose if an input is a solution or not
     // We want to do the same crash deduplication that AFL does
@@ -239,13 +255,10 @@ pub fn main() {
     // A fuzzer with feedbacks and a corpus scheduler
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
-    let args = res.value_of("arguments").unwrap().to_string();
-    let executable = res.value_of("executable").unwrap();
-    let outdir = res.value_of("outdir").unwrap().to_string();
-    let mut executor = vcs_executor::VCSExecutor { executable: executable.to_string(), args, outdir}.into_executor(tuple_list!(verdi_observer));
+    let mut executor = vcs_executor::VCSExecutor { executable: simv_name, args:simv_args, workdir: workdir}.into_executor(tuple_list!(verdi_observer));
 
     // Load initial inputs from corpus
-    let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
+    let corpus_dir = PathBuf::from(seeds_dir);
     state
         .load_initial_inputs(&mut fuzzer, &mut executor, &mut mgr, &[corpus_dir])
         .expect("Failed to load the initial corpus");
