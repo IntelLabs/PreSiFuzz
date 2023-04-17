@@ -23,6 +23,7 @@ use libafl::monitors::UserStats;
 use libafl::events::{Event};
 use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
 use std::process::Command;
+use std::path::Path;
 
 extern crate fs_extra;
 
@@ -108,6 +109,15 @@ where
 
             let mut backup_path = self.workdir.clone();
             backup_path.push_str(&format!("/backup_{}", self.id));
+            
+            manager.fire(
+                state,
+                Event::UpdateUserStats {
+                    name: "VDB".to_string(),
+                    value: UserStats::String( backup_path.clone()),
+                    phantom: Default::default(),
+                },
+            )?;
 
             // backup the vdb folder
             assert!(Command::new("cp")
