@@ -17,6 +17,7 @@ out_dir = "custom"
 members = [
     "libafl_verdi",
     "libafl_verilator",
+    "hw_utils"
 ]
 exclude = [
     "fuzzers",
