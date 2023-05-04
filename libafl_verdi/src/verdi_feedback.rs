@@ -23,7 +23,6 @@ use libafl::monitors::UserStats;
 use libafl::events::{Event};
 use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
 use std::process::Command;
-use std::path::Path;
 
 extern crate fs_extra;
 
@@ -65,7 +64,8 @@ where
 
         let o_map = observer.my_map().as_slice();
 
-        for (i, item) in o_map.iter().enumerate().take(capacity) {
+        for (i, item) in o_map.iter().enumerate().filter(|&(i,_)| i>=2).take(capacity) {
+        //for (i, item) in o_map.iter().enumerate().take(capacity) {
             if i == 0 {
                 continue;
             }
@@ -76,9 +76,7 @@ where
             }
         }
             
-        let covered = o_map[0]; 
-        let uncovered = o_map[1];
-        
+        let coverable = o_map[1];
 
         if interesting {
         
@@ -94,15 +92,16 @@ where
                 }
             }
             self.history[0] = covered;
+            self.history[1] = coverable;
         
-            self.score = (covered as f32 / uncovered as f32) * 100.0;
+            self.score = (covered as f32 / coverable as f32) * 100.0;
  
             // Save scrore into state
             manager.fire(
                 state,
                 Event::UpdateUserStats {
                     name: "coverage".to_string(),
-                    value: UserStats::Float(self.score as f64),
+                    value: UserStats::Ratio(covered as u64, coverable as u64),
                     phantom: Default::default(),
                 },
             )?;
