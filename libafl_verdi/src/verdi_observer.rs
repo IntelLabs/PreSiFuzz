@@ -206,7 +206,7 @@ where
 
                 let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
                 let db = vdb_cov_init(vdb.as_ptr());
-                if( (db as usize) == 0) {
+                if db as usize == 0 {
                     panic!("Unable to open vdb!");
                 }
                 
@@ -474,7 +474,7 @@ where
                     npi_init();
 
                     let db = vdb_cov_init(vdb.as_ptr());
-                    if( (db as usize) == 0) {
+                    if db as usize == 0 {
                         panic!("Unable to open vdb!");
                     }
 
@@ -595,7 +595,7 @@ mod tests {
                         panic!("Unable to open vdb!");
                     }
 
-                    let filter = CString::new("tb.dut").expect("CString::new failed");
+                    let filter = CString::new("").expect("CString::new failed");
                     update_cov_map(db, shmem_ptr as *mut c_uint, MAP_SIZE as c_uint, 5 as c_uint, filter.as_ptr());
 
                     vdb_cov_end(db);
