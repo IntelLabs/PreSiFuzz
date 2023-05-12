@@ -14,7 +14,7 @@ fusesoc library add opentitan https://github.com/lowRISC/opentitan.git
 cp ./Dockerfile ./fusesoc_libraries/opentitan/util/container/Dockerfile
 
 if [[ "$(docker images -q opentitan 2> /dev/null)" == "" ]]; then
-  cd ./fusesoc_libraries/opentitan  
+  cd ./fusesoc_libraries/opentitan
   docker build --network=host --build-arg proxy=$https_proxy -t opentitan -f ./util/container/Dockerfile .
   cd ../..
 fi
