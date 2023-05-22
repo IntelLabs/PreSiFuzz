@@ -22,6 +22,8 @@ pub trait CyclesExecutedObserver {
     fn cycles(&self) -> u64;
 }
 
+pub mod calibrate;
+
 /// Map feedback which preprocesses the cycles into a map such that if a coverage point is
 /// non-initial in the provided coverage map, then it is mapped into the coverage map as the number
 /// of cycles for that execution. An execution is then "interesting" if it reduces the number of
@@ -73,7 +75,8 @@ where
         track_novelties: bool,
     ) -> Self {
         let temp = CyclesMapProxy::new(
-            format!("cycles_{}", cycles_obs.name()),
+            // format!("cycles_{}", cycles_obs.name()),
+            cycles_obs.name().to_string(),
             cycles_obs,
             map_obs,
             u64::MAX,
@@ -121,7 +124,7 @@ fn undeserializeable<T>() -> T {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct CyclesMapProxy<MO> {
+pub struct CyclesMapProxy<MO> {
     name: String,
     #[serde(skip, default = "undeserializeable")]
     map: *const MO,
@@ -171,7 +174,7 @@ where
     }
 }
 
-struct CycleIndexIter<'a, MO, T>
+pub struct CycleIndexIter<'a, MO, T>
 where
     MO: MapObserver<Entry = T> + for<'b> AsIter<'b, Item = T>,
     T: Bounded + PartialEq + Default + Copy + Debug + 'static,
@@ -320,3 +323,4 @@ where
         self.inner.discard_metadata(state, input)
     }
 }
+
