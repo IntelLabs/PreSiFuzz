@@ -22,7 +22,7 @@ pub trait CyclesExecutedObserver {
     fn cycles(&self) -> u64;
 }
 
-pub mod calibrate;
+// pub mod calibrate;
 
 /// Map feedback which preprocesses the cycles into a map such that if a coverage point is
 /// non-initial in the provided coverage map, then it is mapped into the coverage map as the number
