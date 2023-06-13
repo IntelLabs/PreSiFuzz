@@ -59,7 +59,7 @@ use libafl_verdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
 use libafl_verdi::verdi_observer::VerdiShMapObserver;
 use libafl_verdi::verdi_observer::VerdiCoverageMetric;
 
-mod vcs_executor;
+// mod vcs_executor;
 
 #[derive(Debug)]
 pub struct WorkDir(Option<TempDir>);
