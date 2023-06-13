@@ -112,14 +112,7 @@ pub fn main() {
 
     // A feedback to choose if an input is a solution or not
     // We want to do the same crash deduplication that AFL does
-    let mut objective = feedback_and_fast!(
-        // When an assertion failed, we could trigger a POSIX signal value
-        // that mimics a crash.
-        CrashFeedback::new(),
-        // Take it only if trigger new coverage over crashes
-        // This will discard redondant findings
-        CrashFeedback::new()
-    );
+    let mut objective = ();
     
     // If not restarting, create a State from scratch
     let corpus_dir = PathBuf::from(res.value_of("corpus").unwrap().to_string());
@@ -162,7 +155,7 @@ pub fn main() {
     impl CommandConfigurator for MyExecutor {
         fn spawn_child<I: Input + HasTargetBytes>(&mut self, input: &I) -> Result<Child, Error> {
 
-            let mut command = Command::new("./bin/aes");
+            let mut command = Command::new("./build/Vaes_tb");
 
             let command = command
                 // .args(&[self.shmem_id.as_str()])
