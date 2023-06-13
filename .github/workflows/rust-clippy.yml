@@ -13,7 +13,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '5 * * *'
+    - cron: '5 * * * *'
 jobs:
   rust-clippy-analyze:
     name: Run rust-clippy analyzing
