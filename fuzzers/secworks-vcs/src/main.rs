@@ -200,7 +200,7 @@ pub fn main() {
     let (mut feedback, verdi_observer) = 
     {
         let outdir = res.value_of("outdir").unwrap().to_string();
-        let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &outdir, shmem_ptr, &VerdiCoverageMetric::Toggle)};
+        let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &outdir, shmem_ptr, &VerdiCoverageMetric::Toggle, &"".to_string())};
 
         let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &outdir);
         // let feedback = MaxMapFeedback::new(&verdi_observer);

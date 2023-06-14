@@ -40,10 +40,11 @@
 
 module tb_fuzz();
 
-  string test_case;
   parameter             WIDTH = 32;
+  
   int fd;
   int status;
+  string test_case;
 
   //----------------------------------------------------------------
   // Internal constant and parameter definitions.

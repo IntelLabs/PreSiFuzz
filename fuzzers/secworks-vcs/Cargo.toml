@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [package]
-name = "baby-rtl-fuzzer"
+name = "secworks-vcs"
 version = "0.0.1"
 authors = ["Nassim Corteggiani <nassim.corteggiani@intel.com>"]
 edition = "2021"
