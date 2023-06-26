@@ -158,9 +158,10 @@ where
     }
 
     #[inline]
-    fn append_metadata(
+    fn append_metadata<OT>(
         &mut self,
         _state: &mut S,
+        _observers: &OT,
         _testcase: &mut Testcase<S::Input>,
     ) -> Result<(), Error> {
         Ok(())
