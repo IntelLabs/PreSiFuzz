@@ -39,6 +39,7 @@ jobs:
           toolchain: stable
           components: clippy
           command: build
+          args: --profile dev
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
       - name: Run rust-clippy
