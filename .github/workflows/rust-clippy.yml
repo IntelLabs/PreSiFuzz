@@ -12,8 +12,8 @@ on:
       - edited
     branches:
       - main
-  schedule:
-    - cron: '5 * * * *'
+  #schedule:
+  #  - cron: '5 * * * *'
 jobs:
   rust-clippy-analyze:
     name: Run rust-clippy analyzing
@@ -36,10 +36,9 @@ jobs:
       - name: rust-cargo
         uses: actions-rs/cargo@v1
         with:
-          profile: minimal
           toolchain: stable
           components: clippy
-          override: true
+          command: build
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
       - name: Run rust-clippy
