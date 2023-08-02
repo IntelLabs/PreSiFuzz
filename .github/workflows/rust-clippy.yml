@@ -42,6 +42,11 @@ jobs:
           args: --profile dev
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
+      - name: clippy-check
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
       - name: Run rust-clippy
         run: cargo clippy --all-features --message-format=json | clippy-sarif | tee
           rust-clippy-results.sarif | sarif-fmt
