@@ -16,7 +16,7 @@ on:
   #  - cron: '5 * * * *'
 jobs:
   smoke-tests:
-    name: Run rust-clippy analyzing
+    name: Run smoke tests
     runs-on: self-hosted
     permissions:
       contents: read
