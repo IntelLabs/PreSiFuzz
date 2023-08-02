@@ -3,7 +3,7 @@ name: rust-clippy analyze
 on:
   push:
     branches:
-      - main
+      - feature/github_actions
   pull_request:
     types:
       - opened
