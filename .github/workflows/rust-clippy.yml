@@ -36,7 +36,7 @@ jobs:
       - name: rust-cargo
         uses: actions-rs/cargo@v1
         with:
-          toolchain: stable
+          toolchain: 1.66.0
           components: clippy
           command: build
           args: --profile dev
