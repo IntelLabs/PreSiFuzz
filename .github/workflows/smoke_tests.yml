@@ -37,6 +37,5 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           toolchain: stable
-          components: clippy
           command: build
           args: --profile release
