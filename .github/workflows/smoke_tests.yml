@@ -1,1 +1,42 @@
-runs-on: self-hosted
+---
+name: rust-clippy analyze
+on:
+  push:
+    branches:
+      - feature/github_actions
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - edited
+    branches:
+      - main
+  #schedule:
+  #  - cron: '5 * * * *'
+jobs:
+  rust-clippy-analyze:
+    name: Run rust-clippy analyzing
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Submodules
+        run: git submodule update --init
+      - name: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          override: true
+      - name: rust-cargo
+        uses: actions-rs/cargo@v1
+        with:
+          toolchain: stable
+          components: clippy
+          command: build
+          args: --profile release
