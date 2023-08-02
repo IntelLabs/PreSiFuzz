@@ -7,7 +7,7 @@ use std::env;
 
 fn main() {
 
-    if Ok("runner".to_owned()) == env::var("PROFILE") {
+    if Ok("debug".to_owned()) == env::var("PROFILE") {
         cc::Build::new()
             .cpp(true) // Switch to C++ library compilation.
             .file("./src/npi_c.c")

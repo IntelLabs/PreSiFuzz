@@ -18,6 +18,8 @@
 #include "npi_cov.h"
 #else
 typedef void* npiCovHandle;
+#include <assert.h>
+#include <ctime>
 #endif
 
 #include <stdio.h>
@@ -71,7 +73,8 @@ extern "C" {
 
   npiCovHandle vdb_cov_init(const char* vdb_file_path) {
 #ifdef DUMMY_LIB
-    return 0;
+    assert(vdb_file_path != NULL);
+    return (npiCovHandle)0;
 #else
     npiCovHandle db = npi_cov_open( vdb_file_path );
 
@@ -81,6 +84,7 @@ extern "C" {
 
   void vdb_cov_end(npiCovHandle db) {
 #ifdef DUMMY_LIB
+    assert(db != NULL);
     return;
 #else
     npi_cov_close( db );
@@ -91,6 +95,9 @@ extern "C" {
   void dump_instance_coverage( npiCovHandle scope, npiCovHandle test, CoverageMap* cov_map)
   {
 #ifdef DUMMY_LIB
+    assert(scope != NULL);
+    assert(test != NULL);
+    assert(cov_map != NULL);
     return;
 #else
     npiCovHandle inst_iter = npi_cov_iter_start( npiCovInstance, scope );
@@ -112,6 +119,9 @@ extern "C" {
   void compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map)
   {
 #ifdef DUMMY_LIB
+    assert(inst != NULL);
+    assert(test != NULL);
+    assert(cov_map != NULL);
     return;
 #else
     npiCovHandle metric = npi_cov_handle( (npiCovObjType_e)cov_map->type, inst );
@@ -134,6 +144,12 @@ extern "C" {
 
   void update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type, char* filter) {
 #ifdef DUMMY_LIB
+    assert(db != NULL);
+    assert(map != NULL);
+    assert(map_size != 0);
+    assert(coverage_type > 0 && coverage_type <= 5);
+    assert(filter != NULL);
+
     std::srand(std::time(nullptr));
 
     int start = std::rand() % map_size;
