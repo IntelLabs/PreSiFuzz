@@ -1,5 +1,5 @@
 ---
-name: rust-clippy analyze
+name: smoke tests
 on:
   push:
     branches:
