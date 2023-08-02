@@ -43,7 +43,7 @@ jobs:
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
       - name: clippy-check
-      - uses: actions-rs/clippy-check@v1
+        uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
