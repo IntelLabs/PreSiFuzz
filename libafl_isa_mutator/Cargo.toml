@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2022 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "libafl_isa_mutator"
+version = "0.0.1"
+authors = ["Nassim Corteggiani <nassim.corteggiani@intel.com>"]
+edition = "2021"
+description = "Hardware Specific Mutators Collection"
+repository = "https://github.com/IntelLabs/preSiFuzz"
+readme = "README.md"
+license = "Apache-2.0"
+categories = ["development-tools::testing"]
+keywords = ["fuzzing", "hardware", "simulation"]
+
+[features]
+default = ["std"]
+tui = []
+std = []
+
+# [build]
+# build = "build.rs"
+
+[build-dependencies]
+cc = "1"
+
+[dependencies]
+clap = { version = "3.2", features = ["default"] }
+libafl = { version = "0.10.1" }
+nix = "0.24"
+num-traits = { version = "0.2", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
+erased-serde = { version = "0.3.21", default-features = false, features = ["alloc"] } # erased serde
+ahash = { version = "0.7", default-features=false, features=["compile-time-rng"] } # The hash function already used in hashbrown
+intervaltree = { version = "0.2.7", default-features = false, features = ["serde"] }
+libc = "0.2"
+fs_extra = "1.2.0"
+hamming = "0.1"
+
