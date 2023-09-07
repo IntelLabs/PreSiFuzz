@@ -19,7 +19,7 @@ fuzzer.
 
 # Supported OS
 
-This tool has only been tested on Linux based OS, and especially Ubuncu 20.04 LTS.
+This tool has only been tested on Linux based OS, and especially Ubuntu 20.04 LTS.
 
 # Dependencies
 
