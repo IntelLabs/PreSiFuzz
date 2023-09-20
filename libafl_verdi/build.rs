@@ -42,5 +42,13 @@ fn main() {
             .compile("npi_c");
         println!("cargo:rustc-link-lib=NPI");
     }
+
+    let key = "VERDI_HOME";
+    let mut verdi_home = match env::var(key) {
+        Ok(val) => val,
+        Err(_e) => "".to_string(),
+    };
+
+    println!("cargo:rustc-link-search=native={}/share/NPI/lib/linux64", verdi_home);
 }
 
