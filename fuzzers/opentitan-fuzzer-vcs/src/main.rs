@@ -21,20 +21,19 @@ use std::process::Command as pcmd;
 use wait_timeout::ChildExt;
 
 #[cfg(not(target_vendor = "apple"))]
-use libafl::bolts::shmem::StdShMemProvider;
+use libafl_bolts::shmem::StdShMemProvider;
 #[cfg(target_vendor = "apple")]
-use libafl::bolts::shmem::UnixShMemProvider;
-
-#[cfg(not(feature = "tui"))]
-use libafl::{
-    bolts::{
+use libafl_bolts::shmem::UnixShMemProvider;
+use libafl_bolts::{
         core_affinity::Cores,
         current_nanos,
         rands::StdRand,
         tuples::tuple_list,
         shmem::{ShMemProvider},
-        AsMutSlice, AsSlice
-    },
+        AsMutSlice, AsSlice};
+
+#[cfg(not(feature = "tui"))]
+use libafl::{
     executors::{inprocess::InProcessExecutor, ExitKind, TimeoutExecutor},
     events::{EventConfig},
     fuzzer::{Fuzzer, StdFuzzer},
