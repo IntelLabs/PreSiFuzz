@@ -126,9 +126,9 @@ where
         // run the expected mutator
         self.mutator.mutate(state, mutant, _stage_idx);
         
-        println!("sanitization");
+        // println!("sanitization");
         self.sanitize(mutant.bytes_mut());
-        println!("sanitization: ok");
+        // println!("sanitization: ok");
 
         // let mutant_valid = self.is_valid(mutant.bytes_mut());
 //
@@ -486,7 +486,7 @@ impl<M> RISCVMutator<M>
                     let (valid, operand_mask, inst_mask, mnemonic, format, priority, mask_arr) = Instructions::is_valid(inst); 
                     
                     if valid {
-                        println!("[{}] Buffer contains 16bits inst \t{} \t{} \t{:b}", inst_count, mnemonic, format, inst);
+                        // println!("[{}] Buffer contains 16bits inst \t{} \t{} \t{:b}", inst_count, mnemonic, format, inst);
                         k += 2;
                         is_16 = true;
                     }
@@ -499,7 +499,7 @@ impl<M> RISCVMutator<M>
 
                     if valid {
                     
-                        println!("[{}] Buffer contains 32bits inst \t{} \t{} \t{:b} \t{:b}", inst_count, mnemonic, format, inst, inst & 0x3);
+                        // println!("[{}] Buffer contains 32bits inst \t{} \t{} \t{:b} \t{:b}", inst_count, mnemonic, format, inst, inst & 0x3);
                         k += 4;
                         is_32 = true;
                     } 
@@ -835,7 +835,7 @@ where
             let old_start_pos = offsets[old_idx].0;
 
             let new_inst_name =  masks[opcode_idx].0;
-            println!("Generating {}", new_inst_name);
+            // println!("Generating {}", new_inst_name);
 
             if offsets[old_idx].1 == 2 { 
 
@@ -1049,32 +1049,61 @@ where
     // M: Mutator<I, S> + Named,
 {
     tuple_list!(
-        RISCVMutator::new(BitFlipMutator::new()),
-        RISCVMutator::new(BitFlip2Mutator::new()),
-        RISCVMutator::new(BitFlip4Mutator::new()),
-        RISCVMutator::new(ByteFlipMutator::new()),
-        RISCVMutator::new(ByteNegMutator::new()),
-        RISCVMutator::new(ByteAddMutator::new()),
-        RISCVMutator::new(WordAddMutator::new()),
-        RISCVMutator::new(DwordAddMutator::new()),
-        RISCVMutator::new(QwordAddMutator::new()),
-        RISCVMutator::new(ByteInterestingMutator::new()),
-        RISCVMutator::new(WordInterestingMutator::new()),
-        RISCVMutator::new(DwordInterestingMutator::new()),
-        RISCVMutator::new(BytesDeleteMutator::new()),
-        RISCVMutator::new(BytesDeleteMutator::new()),
-        RISCVMutator::new(BytesDeleteMutator::new()),
-        RISCVMutator::new(BytesDeleteMutator::new()),
         RISCVMutator::new(BytesExpandMutator::new()),
         RISCVMutator::new(BytesInsertMutator::new()),
         RISCVMutator::new(BytesRandInsertMutator::new()),
-        RISCVMutator::new(BytesSetMutator::new()),
-        RISCVMutator::new(BytesRandSetMutator::new()),
+        // RISCVMutator::new(BytesSetMutator::new()),
+        // RISCVMutator::new(BytesRandSetMutator::new()),
         RISCVMutator::new(BytesCopyMutator::new()),
         RISCVMutator::new(BytesInsertCopyMutator::new()),
-        RISCVMutator::new(BytesSwapMutator::new()),
+        // RISCVMutator::new(BytesSwapMutator::new()),
         RISCVMutator::new(OpcodeMutator::new()),
         RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OpcodeMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+        RISCVMutator::new(OperandsMutator::new()),
+
+
+        // RISCVMutator::new(BitFlipMutator::new()),
+        // RISCVMutator::new(BitFlip2Mutator::new()),
+        // RISCVMutator::new(BitFlip4Mutator::new()),
+        // RISCVMutator::new(ByteFlipMutator::new()),
+        // RISCVMutator::new(ByteNegMutator::new()),
+        // RISCVMutator::new(ByteAddMutator::new()),
+        // RISCVMutator::new(WordAddMutator::new()),
+        // RISCVMutator::new(DwordAddMutator::new()),
+        // RISCVMutator::new(QwordAddMutator::new()),
+        // RISCVMutator::new(ByteInterestingMutator::new()),
+        // RISCVMutator::new(WordInterestingMutator::new()),
+        // RISCVMutator::new(DwordInterestingMutator::new()),
+        // RISCVMutator::new(BytesDeleteMutator::new()),
+        // RISCVMutator::new(BytesDeleteMutator::new()),
+        // RISCVMutator::new(BytesDeleteMutator::new()),
+        // RISCVMutator::new(BytesDeleteMutator::new()),
+        // RISCVMutator::new(BytesExpandMutator::new()),
+        // RISCVMutator::new(BytesInsertMutator::new()),
+        // RISCVMutator::new(BytesRandInsertMutator::new()),
+        // RISCVMutator::new(BytesSetMutator::new()),
+        // RISCVMutator::new(BytesRandSetMutator::new()),
+        // RISCVMutator::new(BytesCopyMutator::new()),
+        // RISCVMutator::new(BytesInsertCopyMutator::new()),
+        // RISCVMutator::new(BytesSwapMutator::new()),
+        // RISCVMutator::new(OpcodeMutator::new()),
+        // RISCVMutator::new(OperandsMutator::new()),
 
         // RISCVOpcodeMutator::new(),
         // BitFlipMutator::new(),
