@@ -1,4 +1,4 @@
-use libafl::bolts::{AsIter, HasLen};
+use libafl_bolts::{AsIter, HasLen, Named};
 use libafl::corpus::Testcase;
 use libafl::events::EventFirer;
 use libafl::executors::ExitKind;
@@ -6,7 +6,7 @@ use libafl::feedbacks::{Feedback, MinMapFeedback};
 use libafl::inputs::UsesInput;
 use libafl::observers::Observer;
 use libafl::observers::{MapObserver, ObserversTuple};
-use libafl::prelude::{MaxMapFeedback, Named};
+use libafl::feedbacks::{MaxMapFeedback};
 use libafl::state::{HasClientPerfMonitor, HasNamedMetadata};
 use libafl::Error;
 use num_traits::Bounded;
@@ -81,7 +81,7 @@ where
             map_obs,
             u64::MAX,
         );
-        let feedback = MinMapFeedback::new_tracking(&temp, track_indexes, track_novelties);
+        let feedback = MinMapFeedback::tracking(&temp, track_indexes, track_novelties);
         Self::_new(feedback, u64::MAX, cycles_obs, map_obs, temp.take_name())
     }
 }
@@ -105,7 +105,7 @@ where
             map_obs,
             0,
         );
-        let feedback = MaxMapFeedback::new_tracking(&temp, track_indexes, track_novelties);
+        let feedback = MaxMapFeedback::tracking(&temp, track_indexes, track_novelties);
         Self::_new(feedback, 0, cycles_obs, map_obs, temp.take_name())
     }
 }
@@ -311,12 +311,16 @@ where
         Ok(interesting)
     }
 
-    fn append_metadata(
+    fn append_metadata<OT>(
         &mut self,
         state: &mut S,
+        observers: &OT,
         testcase: &mut Testcase<S::Input>,
-    ) -> Result<(), Error> {
-        self.inner.append_metadata(state, testcase)
+    ) -> Result<(), Error> 
+    where
+        OT: ObserversTuple<S>
+    {
+        self.inner.append_metadata(state, observers, testcase)
     }
 
     fn discard_metadata(&mut self, state: &mut S, input: &S::Input) -> Result<(), Error> {

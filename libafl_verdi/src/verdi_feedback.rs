@@ -8,7 +8,6 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 use libafl::{
-    bolts::tuples::Named,
     corpus::Testcase,
     events::EventFirer,
     executors::ExitKind,
@@ -18,7 +17,9 @@ use libafl::{
     Error,
     feedbacks::Feedback
 };
-use libafl::bolts::AsSlice;
+
+use libafl_bolts::Named;
+use libafl_bolts::AsSlice;
 use libafl::monitors::UserStats;
 use libafl::events::{Event};
 use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
@@ -158,11 +159,15 @@ where
     }
 
     #[inline]
-    fn append_metadata(
+    fn append_metadata<OT>(
         &mut self,
         _state: &mut S,
+        observers: &OT,
         _testcase: &mut Testcase<S::Input>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error> 
+    where
+        OT: ObserversTuple<S>,
+    {
         Ok(())
     }
 

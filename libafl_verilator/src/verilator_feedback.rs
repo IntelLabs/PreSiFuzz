@@ -8,16 +8,16 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 use libafl::{
-    bolts::tuples::Named,
     corpus::Testcase,
     events::EventFirer,
     executors::ExitKind,
-    inputs::Input,
+    inputs::{Input, UsesInput},
     observers::{ObserversTuple},
     state::HasClientPerfMonitor,
     Error,
     feedbacks::Feedback
 };
+use libafl_bolts::Named;
 use crate::verilator_observer::VerilatorObserver;
 extern crate fs_extra;
 
@@ -32,23 +32,22 @@ pub struct VerilatorFeedback {
     outdir: String,
 }
 
-impl<I, S> Feedback<I, S> for VerilatorFeedback
+impl<S> Feedback<S> for VerilatorFeedback
 where
-    I: Input,
-    S: HasClientPerfMonitor,
+    S: UsesInput + HasClientPerfMonitor,
 {
     #[allow(clippy::wrong_self_convention)]
     fn is_interesting<EM, OT>(
         &mut self,
         _state: &mut S,
         _manager: &mut EM,
-        _input: &I,
+        _input: &S::Input,
         observers: &OT,
         _exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
-        EM: EventFirer<I>,
-        OT: ObserversTuple<I, S>,
+        EM: EventFirer<State = S>,
+        OT: ObserversTuple<S>,
     {
         let observer = observers.match_name::<VerilatorObserver>(self.name()).unwrap();
 
@@ -73,13 +72,16 @@ where
 
     /// Append to the testcase the generated metadata in case of a new corpus item
     #[inline]
-    fn append_metadata(&mut self, _state: &mut S, _testcase: &mut Testcase<I>) -> Result<(), Error> {
+    fn append_metadata<OT>(&mut self, _state: &mut S, observers: &OT ,_testcase: &mut Testcase<S::Input>) -> Result<(), Error> 
+    where
+        OT: ObserversTuple<S>,
+    {
         Ok(())
     }
 
     /// Discard the stored metadata in case that the testcase is not added to the corpus
     #[inline]
-    fn discard_metadata(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn discard_metadata(&mut self, _state: &mut S, _input: &S::Input) -> Result<(), Error> {
         Ok(())
     }
 }
