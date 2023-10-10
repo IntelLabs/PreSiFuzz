@@ -9,22 +9,22 @@ use std::{
 };
 
 #[cfg(not(target_vendor = "apple"))]
-use libafl::bolts::shmem::StdShMemProvider;
+use libafl_bolts::shmem::StdShMemProvider;
 #[cfg(target_vendor = "apple")]
-use libafl::bolts::shmem::UnixShMemProvider;
+use libafl_bolts::shmem::UnixShMemProvider;
 
 #[cfg(feature = "tui")]
 use libafl::monitors::tui::TuiMonitor;
 #[cfg(not(feature = "tui"))]
-use libafl::{
-    bolts::{
+use libafl_bolts::{
         core_affinity::Cores,
         current_nanos,
         rands::StdRand,
         shmem::{ShMemProvider},
         tuples::tuple_list,
-        AsMutSlice
-    },
+        AsMutSlice, AsSlice
+};
+use libafl::{
     executors::{inprocess::InProcessExecutor, ExitKind, TimeoutExecutor},
     events::{EventConfig},
     fuzzer::{Fuzzer, StdFuzzer},
@@ -41,7 +41,6 @@ use std::path::Path;
 use libafl::inputs::HasTargetBytes;
 use libafl::prelude::Input;
 use std::fs::File;
-use libafl::bolts::AsSlice;
 use std::io::Write;
 use libafl::prelude::MultiMonitor;
 use libafl::prelude::Launcher;
