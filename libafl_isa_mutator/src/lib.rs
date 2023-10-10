@@ -1,9 +1,9 @@
-use libafl::{
-    bolts::{
-        rands::Rand, tuples::Named,
+use libafl_bolts::{
+        rands::Rand, Named,
         tuples::{tuple_list, tuple_list_type, NamedTuple},
         HasLen 
-    },
+};
+use libafl::{
     // inputs::BytesInput,
     corpus::Corpus,
     inputs::HasBytesVec,
