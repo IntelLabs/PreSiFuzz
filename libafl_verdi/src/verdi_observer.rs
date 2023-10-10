@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use libafl::{
-    bolts::{tuples::Named, AsIter, HasLen, AsMutSlice, AsSlice},
     executors::{ExitKind},
     observers::{MapObserver, Observer},
     observers::{DifferentialObserver, ObserversTuple},
@@ -17,11 +16,12 @@ use core::{
     slice::IterMut,
     slice::Iter,
 };
-use libafl::prelude::AsIterMut;
 use serde::{Deserialize, Serialize};
 use libc::{c_uint, c_char, c_void};
 use nix::{sys::wait::waitpid,unistd::{fork, ForkResult}};
-use libafl::prelude::OwnedMutSlice;
+use libafl_bolts::{
+    ownedref::OwnedMutSlice, AsIter, AsIterMut, AsMutSlice, AsSlice, HasLen, Named,
+};
 
 extern crate fs_extra;
 use std::{
@@ -553,7 +553,7 @@ mod tests {
     use std::process;
     use crate::verdi_observer::*;
     use libafl::prelude::StdShMemProvider;
-    use libafl::{bolts::{shmem::{ShMem, ShMemProvider}}};
+    use libafl_bolts::shmem::{ShMem, ShMemProvider};
 
     const MAP_SIZE: usize = 65536 * 4;
 

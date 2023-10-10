@@ -4,16 +4,17 @@
 
 #[cfg(not(feature = "tui"))]
 use libafl::{
-    bolts::{tuples::Named, AsIter, HasLen},
     executors::ExitKind,
     observers::{MapObserver, Observer},
     Error,
 };
+use libafl_bolts::{Named, AsIter, HasLen};
 use std::str;
 use core::{
     fmt::Debug,
 };
 // use std::path::Path;
+use libafl::prelude::UsesInput;
 
 use ahash::AHasher;
 use serde::{Deserialize, Serialize};
@@ -74,8 +75,11 @@ impl VerilatorObserver {
 
 }
 
-impl<I, S> Observer<I, S> for VerilatorObserver {
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+impl<S> Observer<S> for VerilatorObserver 
+where
+    S: UsesInput,
+{
+    fn pre_exec(&mut self, _state: &mut S, _input: &S::Input) -> Result<(), Error> {
 
         // let's clean the map
         let initial = self.initial;
@@ -88,7 +92,7 @@ impl<I, S> Observer<I, S> for VerilatorObserver {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _input: &I,
+        _input: &S::Input,
         _exit_kind: &ExitKind,
     ) -> Result<(), Error> {
 
@@ -172,10 +176,6 @@ impl MapObserver for VerilatorObserver {
     #[inline(always)]
     fn initial(&self) -> Self::Entry {
         0
-    }
-
-    fn initial_mut(&mut self) -> &mut <Self as MapObserver>::Entry { 
-        &mut self.initial
     }
 
     fn reset_map(&mut self) -> Result<(), Error> {
