@@ -9,7 +9,7 @@
  * 1. Open a coverage databse.
  * 2. Merge test.
  * 3. Traverse instance from top
- * 4. Traverse line metric
+ * 4. Copy to map selected metric
  * -------------------------------------------------------------------------------- */
 
 #include "stdio.h"
@@ -29,6 +29,8 @@ typedef void* npiCovHandle;
 #include <sys/types.h>
 #include <string>
 
+#include "stdint.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -36,6 +38,7 @@ extern "C" {
   typedef struct {
     uint32_t* map;
     unsigned write_byte_index;
+    unsigned write_bit_index;
     unsigned type;
     unsigned size;
     uint32_t coverable;
@@ -54,14 +57,15 @@ extern "C" {
 #ifdef DUMMY_LIB
     return;
 #else
-    int argcv = 1;
+    int argcv = 2;
     int& argc = argcv;
 
-    char *args[2];
+    char *args[3];
 
     // We need to mimic the regular argv format to success with NPI init
     args[0]= (char*)"./presifuzz\0";
-    args[1]=NULL;
+    args[1]= (char*)"-q\0";
+    args[2]=NULL;
     char **p_args=args;
     char**& argv = p_args;
 
@@ -123,10 +127,30 @@ extern "C" {
       if(covered < 0)
         covered = 0;
 
-      cov_map->coverable = cov_map->coverable + npi_cov_get( npiCovCoverable, block, NULL );
+      int coverable = npi_cov_get( npiCovCoverable, block, NULL );
+
+      cov_map->coverable = cov_map->coverable + coverable;
       cov_map->covered = cov_map->covered + covered;
 
-      cov_map->map[cov_map->write_byte_index++] = covered;
+      for(int i=0; i< covered; i++) {
+          cov_map->map[cov_map->write_byte_index] |= ((uint32_t)1 << cov_map->write_bit_index);
+          cov_map->write_bit_index += 1;      
+
+          if( cov_map->write_bit_index == 32 ) {
+            cov_map->write_byte_index += 1;
+            cov_map->write_bit_index = 0;      
+          } 
+      }
+      
+      for(int i=0; i< coverable-covered; i++) {
+          cov_map->map[cov_map->write_byte_index] &= ~((uint32_t)1 << cov_map->write_bit_index);
+          cov_map->write_bit_index += 1;      
+
+          if( cov_map->write_bit_index == 32 ) {
+            cov_map->write_byte_index += 1;
+            cov_map->write_bit_index = 0;      
+          } 
+      }
     }
     npi_cov_iter_stop( iter );
 #endif
@@ -154,14 +178,15 @@ extern "C" {
     CoverageMap cov_map;
     cov_map.map = map;
     cov_map.write_byte_index = 2;
+    cov_map.write_bit_index = 0;
     cov_map.type = coverage_type;
     cov_map.size = map_size;
     cov_map.coverable = 0;
     cov_map.covered = 0;
     cov_map.filter = filter;
 
-    printf("COVERAGE: %d\n", coverage_type);
-    printf("FILTER: %s\n", filter);
+    // printf("COVERAGE: %d\n", coverage_type);
+    // printf("FILTER: %s\n", filter);
 
     // Iterate test and merge test
     npiCovHandle test_iter = npi_cov_iter_start( npiCovTest, db );
@@ -188,13 +213,13 @@ extern "C" {
     npi_cov_close( db );
     npi_end();
 
-    float score = 0.0;
-    if(cov_map.coverable != 0) {
-      score = (((float)cov_map.covered / (float)cov_map.coverable) * 100.0);
-    }
-    printf("score is %f\n", score);
-    printf("coverable is %d\n", cov_map.coverable);
-    printf("covered is %d\n", cov_map.covered);
+    // float score = 0.0;
+    // if(cov_map.coverable != 0) {
+      // score = (((float)cov_map.covered / (float)cov_map.coverable) * 100.0);
+    // }
+    // printf("score is %f\n", score);
+    // printf("coverable is %d\n", cov_map.coverable);
+    // printf("covered is %d\n", cov_map.covered);
     // assumption: float is 4bytes length, fits in u32
     // map[0] = (uint32_t)score;
     map[0] = cov_map.covered;
@@ -216,15 +241,15 @@ int main(int argc, char** argv) {
 
   unsigned size = 41678 * 2;
   uint32_t map[size] = {0};
-  char* filter = "tb.dut"; 
+  char* filter = "";
 
   update_cov_map(db, (uint32_t*)&map, size, 5, filter);
 
-  // printf("[");
-  // unsigned i;
-  // for(i=0; i<size; i++) {
-    // printf("%d ", map[i]);
-  // }
-  // printf("]");
+  printf("[");
+  unsigned i;
+  for(i=0; i<size; i++) {
+    printf("%u ", map[i]);
+  }
+  printf("]");
 }
 #endif

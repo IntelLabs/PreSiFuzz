@@ -51,12 +51,9 @@ use std::io::prelude::*;
 use std::fs::File;
 use tempdir::TempDir;
 
-// use libafl::prelude::MaxMapFeedback;
-
-use libafl_verdi::verdi_feedback::VerdiFeedback as VerdiFeedback;
-// use libafl_verdi::verdi_observer::VerdiMapObserver;
-use libafl_verdi::verdi_observer::VerdiShMapObserver;
-use libafl_verdi::verdi_observer::VerdiCoverageMetric;
+use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback as VerdiFeedback;
+use libpresifuzz_observers::verdi_observer::VerdiShMapObserver;
+use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
 
 // mod vcs_executor;
 

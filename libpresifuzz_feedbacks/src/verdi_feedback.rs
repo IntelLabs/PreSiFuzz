@@ -13,21 +13,20 @@ use libafl::{
     executors::ExitKind,
     inputs::{UsesInput},
     observers::{ObserversTuple},
-    state::HasClientPerfMonitor,
     Error,
-    feedbacks::Feedback
+    feedbacks::Feedback,
+    state::{State},
 };
 
 use libafl_bolts::Named;
 use libafl_bolts::AsSlice;
-use libafl::monitors::UserStats;
+use libafl::monitors::{UserStats, UserStatsValue, AggregatorOps};
 use libafl::events::{Event};
-use crate::verdi_observer::VerdiShMapObserver as VerdiObserver;
 use std::process::Command;
 use std::path::Path;
 use libafl::inputs::Input;
 
-extern crate fs_extra;
+use libpresifuzz_observers::verdi_observer::VerdiShMapObserver as VerdiObserver;
 
 /// Nop feedback that annotates execution time in the new testcase, if any
 /// for this Feedback, the testcase is never interesting (use with an OR).
@@ -45,7 +44,7 @@ pub struct VerdiFeedback<const N: usize>
 
 impl<S, const N: usize> Feedback<S> for VerdiFeedback<N>
 where
-    S: UsesInput + HasClientPerfMonitor,
+    S: UsesInput + State,
 {
 
     #[allow(clippy::wrong_self_convention)]
@@ -61,51 +60,96 @@ where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>
     {
+        if cfg!(feature = "const_true") {
+            let mut backup_path = self.workdir.clone();
+            backup_path.push_str(&format!("/backup_{}", self.id));
+            
+            manager.fire(
+                state,
+                Event::UpdateUserStats {
+                    name: "VDB".to_string(),
+                    value: UserStats::new( UserStatsValue::String( backup_path.clone()), AggregatorOps::Avg),
+                    phantom: Default::default(),
+                },
+            )?;
+
+            // backup the vdb folder
+            assert!(Command::new("cp")
+                .arg("-r")
+                .arg("./Coverage.vdb")
+                .arg(backup_path)
+                .status()
+                .unwrap()
+                .success());
+            
+            self.id += 1;
+
+            return Ok(true);
+        } else if cfg!(feature = "const_false") {
+            return Ok(false);
+        }
+
         let observer = observers.match_name::<VerdiObserver<N>>(self.name()).unwrap();
         let capacity = observer.cnt();
-
+        
         let mut interesting : bool = false;
 
         let o_map = observer.my_map().as_slice();
 
-        for (i, item) in o_map.iter().enumerate().filter(|&(i,_)| i>=2).take(capacity) {
-        //for (i, item) in o_map.iter().enumerate().take(capacity) {
-            if i == 0 {
-                continue;
-            }
+        'traverse_map: for (_k, item) in o_map.iter().enumerate().filter(|&(_k,_)| _k>=2).take(capacity) {
 
-            if self.history[i] < *item {
-                interesting = true; 
-                break;
+            // each bit maps to one RTL signal 
+            // any new bit set to 1 is interesting
+            for i in 0..32 {
+                let history_nth = (self.history[_k] >> i as u32) & 1 as u32;
+                let item_nth = (*item >> i as u32) & 1 as u32;
+
+                if history_nth != item_nth && item_nth == 1 {
+                    // println!("{:x}:{:x} Finding new bit in {} compared to known state {}, with bit number {} set to 1",self.history[i], *item, item_nth, history_nth, i);
+                    interesting = true; 
+                    break 'traverse_map;
+                } 
             }
         }
             
-        let coverable = o_map[1];
+        let mut coverable: u32 = 0;
+        let mut covered: u32 = 0;
 
         if interesting {
         
-            let mut covered = 0; 
-
             let o_map = observer.my_map().as_slice();
-            for (i, item) in o_map.iter().enumerate().filter(|&(i,_)| i>=2).take(capacity) {
-                if self.history[i] < *item {
-                    self.history[i] = *item;
-                    covered += *item;
-                } else {
-                    covered += self.history[i];
+            'traverse_map: for (_k, item) in o_map.iter().enumerate().filter(|&(_k,_)| _k>=2).take(capacity) {
+
+                for i in 0..32 {
+                    let history_nth = (self.history[_k] >> i as u32) & 1 as u32;
+                    let item_nth = (*item >> i as u32) & 1 as u32;
+
+                    if history_nth == 0 && item_nth == 1 {
+                        self.history[_k] |=  1 << i as u32;
+                        covered += 1;
+                    } else if history_nth == 1 {
+                        covered += 1;
+                    }
+
+                    coverable += 1;
+
+                    if _k*32+i > o_map[1].try_into().unwrap() {
+                        break 'traverse_map;
+                    }
                 }
             }
+
             self.history[0] = covered;
             self.history[1] = coverable;
         
             self.score = (covered as f32 / coverable as f32) * 100.0;
- 
+
             // Save scrore into state
             manager.fire(
                 state,
                 Event::UpdateUserStats {
-                    name: "coverage".to_string(),
-                    value: UserStats::Ratio(covered as u64, coverable as u64),
+                    name: format!("coverage_{}", self.name()).to_string(),
+                    value: UserStats::new( UserStatsValue::Ratio(covered as u64, coverable as u64), AggregatorOps::Avg),
                     phantom: Default::default(),
                 },
             )?;
@@ -117,7 +161,7 @@ where
                 state,
                 Event::UpdateUserStats {
                     name: "VDB".to_string(),
-                    value: UserStats::String( backup_path.clone()),
+                    value: UserStats::new( UserStatsValue::String( backup_path.clone()), AggregatorOps::Avg),
                     phantom: Default::default(),
                 },
             )?;
@@ -137,32 +181,15 @@ where
 
             self.id += 1;
         }
-
-        // Clean existing vdb
-        assert!(Command::new("rm")
-            .arg("-rf")
-            .arg("./Coverage.vdb")
-            .status()
-            .unwrap()
-            .success());
-
-        // Copy virgin vdb
-        assert!(Command::new("cp")
-            .arg("-r")
-            .arg("./Virgin_coverage.vdb")
-            .arg("./Coverage.vdb")
-            .status()
-            .unwrap()
-            .success());
-
-        Ok(interesting)
+        
+        return Ok(interesting);
     }
 
     #[inline]
     fn append_metadata<OT>(
         &mut self,
         _state: &mut S,
-        observers: &OT,
+        _observers: &OT,
         _testcase: &mut Testcase<S::Input>,
     ) -> Result<(), Error> 
     where
@@ -190,7 +217,7 @@ impl<const N: usize> VerdiFeedback<N>
 {
     /// Creates a new [`VerdiFeedback`], deciding if the given [`VerdiObserver`] value of a run is interesting.
     #[must_use]
-    pub fn new_with_observer(name: &'static str, capacity: usize, workdir: &String) -> Self {
+    pub fn new_with_observer(name: &'static str, capacity: usize, workdir: &str) -> Self {
         let mut map = Vec::<u32>::with_capacity(capacity);
         for _i in 0..capacity {
             map.push(u32::default());
@@ -205,4 +232,8 @@ impl<const N: usize> VerdiFeedback<N>
         }
     }
 }
+
+
+
+
 

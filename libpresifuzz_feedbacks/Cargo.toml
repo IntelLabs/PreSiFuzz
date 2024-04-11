@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [package]
-name = "libafl_verdi"
-version = "0.0.1"
+name = "libpresifuzz_feedbacks"
+version = "0.0.2"
 authors = ["Nassim Corteggiani <nassim.corteggiani@intel.com>"]
 edition = "2021"
-description = "Observer to collect coverage from vdb using VERDI NPI"
-repository = "https://github.com/intel-sandbox/research.security.fuzzing.hardware-fuzzing.git"
+description = "Feedback to analyze coverage from a VerdiObserver"
+repository = "https://github.com/intel-sandbox/labs.presifuzz"
 readme = "README.md"
 license = "Apache-2.0"
 categories = ["development-tools::testing"]
@@ -16,19 +16,17 @@ keywords = ["fuzzing", "hardware", "simulation"]
 
 [features]
 default = ["std"]
-tui = []
+const_false = []
+const_true = []
 std = []
-
-# [build]
-# build = "build.rs"
 
 [build-dependencies]
 cc = "1"
 
 [dependencies]
 clap = { version = "3.2", features = ["default"] }
-libafl = { version = "0.11.1" }
-libafl_bolts = { version = "0.11.1" }
+libafl = { version = "0.11.2"}
+libafl_bolts = { version = "0.11.2"}
 nix = "0.24"
 num-traits = { version = "0.2", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
@@ -37,3 +35,5 @@ ahash = { version = "0.7", default-features=false, features=["compile-time-rng"]
 intervaltree = { version = "0.2.7", default-features = false, features = ["serde"] }
 libc = "0.2"
 fs_extra = "1.2.0"
+libpresifuzz_observers = {  path = "../libpresifuzz_observers"}
+

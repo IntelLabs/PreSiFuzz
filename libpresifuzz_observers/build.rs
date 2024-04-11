@@ -44,7 +44,7 @@ fn main() {
     }
 
     let key = "VERDI_HOME";
-    let mut verdi_home = match env::var(key) {
+    let verdi_home = match env::var(key) {
         Ok(val) => val,
         Err(_e) => "".to_string(),
     };

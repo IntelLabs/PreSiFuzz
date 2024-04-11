@@ -7,8 +7,9 @@ use libafl::inputs::UsesInput;
 use libafl::observers::Observer;
 use libafl::observers::{MapObserver, ObserversTuple};
 use libafl::feedbacks::{MaxMapFeedback};
-use libafl::state::{HasClientPerfMonitor, HasNamedMetadata};
+use libafl::state::{HasNamedMetadata};
 use libafl::Error;
+use libafl::state::{State};
 use num_traits::Bounded;
 
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,7 @@ pub trait CyclesExecutedObserver {
 /// non-initial in the provided coverage map, then it is mapped into the coverage map as the number
 /// of cycles for that execution. An execution is then "interesting" if it reduces the number of
 /// cycles from the best so far. This may be used in place of a typical coverage map.
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CyclesMapFeedback<F, CO, MO> {
     inner: F,
     cycles_initial: u64,
@@ -64,8 +65,8 @@ where
 impl<CO, MO, S, T> CyclesMapFeedback<MinMapFeedback<CyclesMapProxy<MO>, S, u64>, CO, MO>
 where
     CO: CyclesExecutedObserver + Named,
-    MO: MapObserver<Entry = T> + Observer<S> + for<'a> AsIter<'a, Item = T>,
-    S: UsesInput + HasNamedMetadata + HasClientPerfMonitor + Debug,
+    MO: MapObserver<Entry = T> + Observer<S> + for<'a> AsIter<'a, Item = T> + std::fmt::Debug,
+    S: UsesInput + HasNamedMetadata + Debug,
     T: Bounded + PartialEq + Default + Copy + Debug + 'static,
 {
     pub fn minimising(
@@ -89,8 +90,8 @@ where
 impl<CO, MO, S, T> CyclesMapFeedback<MaxMapFeedback<CyclesMapProxy<MO>, S, u64>, CO, MO>
 where
     CO: CyclesExecutedObserver + Named,
-    MO: MapObserver<Entry = T> + Observer<S> + for<'a> AsIter<'a, Item = T>,
-    S: UsesInput + HasNamedMetadata + HasClientPerfMonitor + Debug,
+    MO: MapObserver<Entry = T> + Observer<S> + for<'a> AsIter<'a, Item = T> + std::fmt::Debug,
+    S: UsesInput + HasNamedMetadata + Debug,
     T: Bounded + PartialEq + Default + Copy + Debug + 'static,
 {
     pub fn minimising(
@@ -176,7 +177,7 @@ where
 
 pub struct CycleIndexIter<'a, MO, T>
 where
-    MO: MapObserver<Entry = T> + for<'b> AsIter<'b, Item = T>,
+    MO: MapObserver<Entry = T> + for<'b> AsIter<'b, Item = T> + std::fmt::Debug,
     T: Bounded + PartialEq + Default + Copy + Debug + 'static,
 {
     map_initial: T,
@@ -187,7 +188,7 @@ where
 
 impl<'it, MO, T> Iterator for CycleIndexIter<'it, MO, T>
 where
-    MO: MapObserver<Entry = T> + for<'b> AsIter<'b, Item = T>,
+    MO: MapObserver<Entry = T> + for<'b> AsIter<'b, Item = T> + std::fmt::Debug,
     T: Bounded + PartialEq + Default + Copy + Debug + 'static,
 {
     type Item = &'it u64;
@@ -205,7 +206,7 @@ where
 
 impl<'it, MO, T> AsIter<'it> for CyclesMapProxy<MO>
 where
-    MO: MapObserver<Entry = T> + for<'a> AsIter<'a, Item = T>,
+    MO: MapObserver<Entry = T> + for<'a> AsIter<'a, Item = T> + std::fmt::Debug,
     T: Bounded + PartialEq + Default + Copy + Debug + 'static,
 {
     type Item = u64;
@@ -223,7 +224,7 @@ where
 
 impl<MO, T> MapObserver for CyclesMapProxy<MO>
 where
-    MO: MapObserver<Entry = T> + for<'a> AsIter<'a, Item = T>,
+    MO: MapObserver<Entry = T> + for<'a> AsIter<'a, Item = T> + std::fmt::Debug,
     T: Bounded + PartialEq + Default + Copy + Debug + 'static,
 {
     type Entry = u64;
@@ -276,8 +277,8 @@ impl<F, CO, MO, S> Feedback<S> for CyclesMapFeedback<F, CO, MO>
 where
     F: Feedback<S>,
     CO: CyclesExecutedObserver + Debug,
-    MO: MapObserver,
-    S: UsesInput + HasClientPerfMonitor,
+    MO: MapObserver + std::fmt::Debug,
+    S: UsesInput + State,
 {
     fn init_state(&mut self, state: &mut S) -> Result<(), Error> {
         self.inner.init_state(state)

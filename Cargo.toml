@@ -15,10 +15,9 @@ out_dir = "custom"
 
 [workspace]
 members = [
-    "libafl_verdi",
-    "libafl_verilator",
-    "hw_utils",
-    "libafl_isa_mutator"
+    "libpresifuzz_feedbacks",
+    "libpresifuzz_observers",
+    "libpresifuzz_schedulers"
 ]
 exclude = [
     "fuzzers",

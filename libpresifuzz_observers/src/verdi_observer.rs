@@ -61,8 +61,11 @@ pub struct VerdiMapObserver
 
 #[derive(Copy, Clone)]
 pub enum VerdiCoverageMetric {
+    Line = 4,
     Toggle = 5,
-    Line = 4
+    FSM = 6,
+    Condition = 7,
+    Branch = 8,
 }
 
 impl VerdiMapObserver
@@ -285,7 +288,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     /// Will get a pointer to the map and dereference it at any point in time.
     /// The map must not move in memory!
     #[must_use]
-    pub fn new(name: &'static str, workdir: &String, map: &'a mut [u32], metric: &VerdiCoverageMetric, filter: &String) -> Self {
+    pub fn new(name: &'static str, workdir: &str, map: &'a mut [u32], metric: &VerdiCoverageMetric, filter: &String) -> Self {
         assert!(map.len() >= N);
         // unsafe {
             // npi_init();
@@ -306,7 +309,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     /// # Safety
     /// Will dereference the `map_ptr` with up to len elements.
     #[must_use]
-    pub unsafe fn from_mut_ptr(name: &'static str, workdir: &String, map_ptr: *mut u32, metric: &VerdiCoverageMetric, filter: &String) -> Self
+    pub unsafe fn from_mut_ptr(name: &'static str, workdir: &str, map_ptr: *mut u32, metric: &VerdiCoverageMetric, filter: &String) -> Self
     {
         // npi_init();
 
@@ -538,6 +541,9 @@ where
     }
 }
 
+
+/* 
+TODO: Re-enable this test using vdb from open source design
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
@@ -552,7 +558,7 @@ mod tests {
     use nix::{sys::wait::waitpid,unistd::{fork, ForkResult}};
     use std::process;
     use crate::verdi_observer::*;
-    use libafl::prelude::StdShMemProvider;
+    use libafl_bolts::shmem::StdShMemProvider;
     use libafl_bolts::shmem::{ShMem, ShMemProvider};
 
     const MAP_SIZE: usize = 65536 * 4;
@@ -563,65 +569,92 @@ mod tests {
         // score is 36.904034
         // coverable is 19632
         // covered is 7245
-    
+
         #[cfg(target_vendor = "apple")]
         let mut shmem_provider = UnixShMemProvider::new().unwrap();
         #[cfg(not(target_vendor = "apple"))]
         let mut shmem_provider = StdShMemProvider::new().unwrap();
         let mut shmem_provider_client = shmem_provider.clone();
-        
+
         let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
         let shmem_buf = shmem.as_mut_slice();
         let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
 
         let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
 
-        match unsafe{fork()} {
-            Ok(ForkResult::Parent{child, ..}) => {
-                match waitpid(child, None) {
-                   Ok(_) => {},
-                   Err(_) => {
-                       println!("libafl_verdi failed to parse vdb using libNPI.so ...");
+        let (verdi_feedback, verdi_observer) = {
+            let verdi_observer = unsafe {
+                VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
+                    "verdi_map",
+                    workdir,
+                    shmem_ptr,
+                    &VerdiCoverageMetric::Toggle,
+                    &"tb".to_string()
+                    )
+            };
+
+            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, workdir);
+
+            (feedback, verdi_observer)
+        };
+
+        verdi_observer.post_exec(state, input, );
+
+        fn post_exec(
+            &mut self,
+            _state: &mut S,
+            _input: &S::Input,
+            _exit_kind: &ExitKind,
+            ) -> Result<(), Error> {
+
+            match unsafe{fork()} {
+                Ok(ForkResult::Parent{child, ..}) => {
+                    match waitpid(child, None) {
+                        Ok(_) => {},
+                        Err(_) => {
+                            println!("libafl_verdi failed to parse vdb using libNPI.so ...");
+                        }
                     }
                 }
-            }
-            Ok(ForkResult::Child) => {
-                unsafe {
-
-                    npi_init();
-
-                    let db = vdb_cov_init(vdb.as_ptr());
-                    if( (db as usize) == 0) {
-                        panic!("Unable to open vdb!");
-                    }
-
-                    let filter = CString::new("").expect("CString::new failed");
-                    update_cov_map(db, shmem_ptr as *mut c_uint, MAP_SIZE as c_uint, 5 as c_uint, filter.as_ptr());
-
-                    vdb_cov_end(db);
-
+                Ok(ForkResult::Child) => {
                     unsafe {
-                        let score: f32 = (*shmem_ptr / *shmem_ptr.add(1)) as f32 * 100.0;
-                        println!("Score is {}", score);
+
+                        npi_init();
+
+                        let db = vdb_cov_init(vdb.as_ptr());
+                        if( (db as usize) == 0) {
+                            panic!("Unable to open vdb!");
+                        }
+
+                        let filter = CString::new("").expect("CString::new failed");
+                        update_cov_map(db, shmem_ptr as *mut c_uint, MAP_SIZE as c_uint, 5 as c_uint, filter.as_ptr());
+
+                        vdb_cov_end(db);
+
+                        unsafe {
+                            let score: f32 = (*shmem_ptr / *shmem_ptr.add(1)) as f32 * 100.0;
+                            println!("Score is {}", score);
+                        }
+
+                        process::exit(0);
                     }
-
-                    process::exit(0);
+                },
+                Err(_) => {
+                    panic!("libafl_verdi failed to fork to invoke libNPI.so ...");
                 }
-            },
-            Err(_) => {
-                panic!("libafl_verdi failed to fork to invoke libNPI.so ...");
             }
+            unsafe {
+                let covered = *shmem_ptr; 
+                let uncovered = *shmem_ptr.add(1);
+
+                let score: f32 = (covered as f32 / uncovered as f32) * 100.0;
+                println!("Score is {} {}/{}", score, covered, uncovered);
+
+                assert!(score == 36.904034);
+            }
+
+            return;
         }
-        unsafe {
-            let covered = *shmem_ptr; 
-            let uncovered = *shmem_ptr.add(1);
-
-            let score: f32 = (covered as f32 / uncovered as f32) * 100.0;
-            println!("Score is {} {}/{}", score, covered, uncovered);
-
-            assert!(score == 36.904034);
-        }
-
-        return;
     }
 }
+*/
