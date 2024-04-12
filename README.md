@@ -31,7 +31,7 @@ require specific license scheme.
 # Installation
 
 This library is mostly designed around the RUST language. 
-For this reson, the initial step is to install 'Cargo'. 
+For this reason, the initial step is to install 'Cargo'. 
 This can be easily done with the following command:
 ```
 curl https://sh.rustup.rs -sSf | sh
@@ -52,8 +52,9 @@ cargo build
 To start playing with the tool, the secworks example is a good candidate.
 You can quickly get it running using the following commands:
 ```
-cd fuzzers/baby-rtl-fuzzer
-bash ./init.sh
+cd secworks-vcs
+cargo build
+./target/debug/secworks-vcs
 ```
 
 # Example targets
