@@ -71,7 +71,6 @@ use clap::{App, Arg};
 use clap::AppSettings;
 
 use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
-use libpresifuzz_feedbacks::sim_time_feedback::SimTimeFeedback;
 
 use libpresifuzz_observers::verdi_observer::VerdiShMapObserver;
 use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
@@ -79,16 +78,12 @@ use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
 pub mod simv;
 use crate::simv::SimvCommandConfigurator;
 
-use libpresifuzz_observers::xtrace_observer::XTraceObserver;
-use libpresifuzz_observers::stats_observer::StatsObserver;
-
 use libpresifuzz_mutators::riscv_isa::riscv_mutations;
 use libpresifuzz_mutators::scheduled::StdISAScheduledMutator;
 
 use libpresifuzz_ec::manager::*;
 use libpresifuzz_ec::llmp::Launcher;
 
-use libpresifuzz_stages::mutational_objdump_sanitized::StdObjdumpSanitizedMutationalStage;
 use libpresifuzz_stages::sync::SyncFromDiskStage;
 use libpresifuzz_feedbacks::transferred::TransferredFeedback;
 
