@@ -17,7 +17,11 @@ out_dir = "custom"
 members = [
     "libpresifuzz_feedbacks",
     "libpresifuzz_observers",
-    "libpresifuzz_schedulers"
+    "libpresifuzz_schedulers",
+    "libpresifuzz_ec",
+    "libpresifuzz_mutators",
+    "libpresifuzz_riscv",
+    "libpresifuzz_stages",
 ]
 exclude = [
     "fuzzers",
