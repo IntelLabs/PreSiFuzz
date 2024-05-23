@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2022 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "libpresifuzz_mutators"
+authors = ["Nassim Corteggiani <nassim.corteggiani@intel.com>, Sergej Schumilo <sergej.schumilo@intel.com>"]
+version = "0.0.2"
+edition = "2021"
+description = "Mutators for hardware fuzzing"
+repository = "https://github.com/intel-sandbox/labs.presifuzz"
+readme = "README.md"
+license = "Apache-2.0"
+categories = ["development-tools::testing"]
+keywords = ["fuzzing", "hardware", "simulation"]
+
+[features]
+default = ["std"]
+tui = []
+std = []
+debug = []
+
+[build-dependencies]
+cc = "1"
+
+[dependencies]
+clap = { version = "3.2", features = ["default"] }
+libafl = { version = "0.11.2"}
+libafl_bolts = { version = "0.11.2"}
+nix = "0.24"
+num-traits = { version = "0.2", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
+erased-serde = { version = "0.3.21", default-features = false, features = ["alloc"] } # erased serde
+ahash = { version = "0.7", default-features=false, features=["compile-time-rng"] } # The hash function already used in hashbrown
+intervaltree = { version = "0.2.7", default-features = false, features = ["serde"] }
+libc = "0.2"
+fs_extra = "1.2.0"
+hamming = "0.1"
+lazy_static = "1.4.0"
+cargo-valgrind = "2.1.0"
+yaml-rust = "0.4.5"
+libpresifuzz_observers = { path = "../libpresifuzz_observers"}
+libpresifuzz_riscv = { path = "../libpresifuzz_riscv"}
+
