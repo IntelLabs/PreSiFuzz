@@ -189,7 +189,7 @@ pub fn fuzz() {
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Toggle,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane.i_cva6".to_string()
                 )
             };
 
@@ -208,7 +208,7 @@ pub fn fuzz() {
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::FSM,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane.i_cva6".to_string()
                 )
             };
 
@@ -227,7 +227,7 @@ pub fn fuzz() {
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Condition,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane.i_cva6".to_string()
                 )
             };
 
@@ -246,7 +246,7 @@ pub fn fuzz() {
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Line,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane.i_cva6".to_string()
                 )
             };
 
@@ -266,7 +266,7 @@ pub fn fuzz() {
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Branch,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane.i_cva6".to_string()
                 )
             };
 
