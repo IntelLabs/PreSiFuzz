@@ -18,7 +18,7 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 use libc::{c_uint, c_char, c_void};
-use nix::{sys::wait::waitpid,unistd::{fork, ForkResult}};
+use nix::{sys::wait::waitpid,unistd::{fork, ForkResult, close, dup2}};
 use libafl_bolts::{
     ownedref::OwnedMutSlice, AsIter, AsIterMut, AsMutSlice, AsSlice, HasLen, Named,
 };
@@ -460,9 +460,14 @@ where
         let pmap = pmap.as_ptr();
 
         let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
+        
+        let (pipe_read, pipe_write) = nix::unistd::pipe().expect("Failed to create pipe");
 
         match unsafe{fork()} {
             Ok(ForkResult::Parent{child, ..}) => {
+       
+               close(pipe_write).expect("Failed to close write end of the pipe");
+
                 match waitpid(child, None) {
                    Ok(_) => return Ok(()),
                    Err(_) => {
@@ -473,6 +478,10 @@ where
             }
             Ok(ForkResult::Child) => {
                 unsafe {
+
+                    close(pipe_read).expect("Failed to close read end of the pipe");
+
+                    dup2(pipe_write, nix::libc::STDOUT_FILENO).expect("Failed to redirect stdout");
 
                     npi_init();
 
