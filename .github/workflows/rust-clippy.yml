@@ -1,5 +1,6 @@
 ---
 name: rust-clippy analyze
+permissions: {}
 on:
   push:
     branches:
