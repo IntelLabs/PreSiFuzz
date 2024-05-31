@@ -1,4 +1,5 @@
 name: compliance checks
+permissions: {}
 
 on:
   push:
