@@ -156,45 +156,18 @@ impl<'a> CommandConfigurator for SimvCommandConfigurator<'a> {
         // 3. spawn simv
         if !cfg!(feature = "debug") {
         
-            let mut child = Command::new("bash")
+            Ok(Command::new("bash")
              .arg("./run.sh")
-             .stdin(Stdio::piped())
-             .stdout(Stdio::piped())
-             .stderr(Stdio::piped())
-             //.stdin(Stdio::null())
-             //.stdout(Stdio::null())
-             //.stderr(Stdio::null())
-             .spawn()
-             .unwrap();
-
-            let secs = Duration::from_secs(10);
-            
-            let _status_code = match child.wait_timeout(secs).unwrap() {
-                Some(status) => status.code(),
-                None => {
-                    child.kill().unwrap();
-                    child.wait().unwrap().code()
-                }
-            };
-
-            let mut s = String::new();
-            child.stdout.as_mut().unwrap().read_to_string(&mut s).unwrap();
-
-            for (num, line) in s.split("\n").enumerate() {
-                println!("{}: {}", num, line);
-            }
-
-            Ok(child)}
-
-            //Ok(Command::new("ls")
-            //.stdin(Stdio::null())
-            //.stdout(Stdio::null())
-            //.stderr(Stdio::null())
-            //.spawn()
-            //.expect("failed to start process"))} 
-        else {
-            Ok(Command::new("./simv")
-                .args(args_v)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("failed to start process"))
+        } else {
+            //Ok(Command::new("./simv")
+            //    .args(args_v)
+            Ok(Command::new("bash")
+             .arg("./run.sh")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
