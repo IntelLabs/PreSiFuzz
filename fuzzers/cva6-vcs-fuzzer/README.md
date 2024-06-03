@@ -69,4 +69,14 @@ The trap handler is there to stop earlier the testcase execution if we trop too 
 This version is a naive implementation, better performance could be achieved with some changes on the testharness (e.g., early simulation stop, irq support).
 
 
+# Ploting data
 
+The fuzzer saves statistics into the `sync`directory.
+It is possible to plot coverage over time using the `plot.py`:
+
+```python
+python3 ./plot.py -m branch -d ./sync
+```
+
+The `-m` option is there to provide the coverage metric that is either tgl, cond, branch, line, fsm.
+The `-d` points to the directory where stats are saved.
