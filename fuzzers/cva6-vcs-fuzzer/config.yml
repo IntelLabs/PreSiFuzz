@@ -6,7 +6,7 @@ simv:
   cov_enable: true
   coverage_metrics: "line+fsm+cond+tgl+branch"
   coverage_directory: "Coverage.vdb"
-  reset_coverage_before_use: true
+  reset_coverage_before_use: false
   system_timeout_s: 180
   vcs_timeout: "30us"
   multi_seed: 0

@@ -29,7 +29,6 @@ extern crate fs_extra;
 #[cfg(feature = "debug")]
 use color_print::cprintln;
 
-use libpresifuzz_observers::xtrace_observer::XTraceObserver;
 use std::fmt::Write;
 use std::{
     fs,
@@ -63,44 +62,37 @@ where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>,
     {
+
+        #[cfg(feature = "debug")]
+        cprintln!("<red>[WARNING]</red> Skipping trace comparison feedback because it is not implemented for cva6 ...");
         return Ok(false);
-        let mut interesting = false;
 
-        #[cfg(feature = "input_injection")]
-        {
-            #[cfg(feature = "debug")]
-            cprintln!("<red>[WARNING]</red> Skipping trace comparison feedback because it is not supported when input_injection is enabled ...");
-            return Ok(false);
-        }
-
-        let observer = observers.match_name::<XTraceObserver>(self.first_name.as_str()).unwrap();
+        //TODO: implement differential testing for cva6 + Spike
+        //let observer = observers.match_name::<XTraceObserver>(self.first_name.as_str()).unwrap();
  
-        let mut output_arg = String::new();
-        write!(output_arg, "--ofile=backup_{}.log", self.counter).expect("Unable to backup compare.pl log");
+        //let mut output_arg = String::new();
+        //write!(output_arg, "--ofile=backup_{}.log", self.counter).expect("Unable to backup compare.pl log");
 
-        if observer.mismatch == true {
-            
-            interesting = true;
-            
-            let dst_file = format!("testcase_state_{}.log", self.counter); 
-            fs::copy(observer.logfile.as_str(), dst_file).expect("Unable to create copy of log file");
+        //if observer.mismatch == true {
+        //    
+        //    interesting = true;
+        //    
+        //    let dst_file = format!("testcase_state_{}.log", self.counter); 
+        //    fs::copy(observer.logfile.as_str(), dst_file).expect("Unable to create copy of log file");
  
-            self.counter += 1;
-            
-            let dst_file = format!("testcase.elf_spike_{}.log", self.counter); 
-            fs::copy("testcase.elf_spike.log", dst_file).expect("Unable to create copy of log file");
-            
-            let dst_file = format!("testcase_{}.elf", self.counter); 
-            fs::copy("testcase.elf", dst_file).expect("Unable to create copy of log file");
-            
-            // let dst_file = format!("simv_{}.log", self.counter);
-            // fs::copy("simv_0.log", dst_file);
-        }
+        //    self.counter += 1;
+        //    
+        //    let dst_file = format!("testcase.elf_spike_{}.log", self.counter); 
+        //    fs::copy("testcase.elf_spike.log", dst_file).expect("Unable to create copy of log file");
+        //    
+        //    let dst_file = format!("testcase_{}.elf", self.counter); 
+        //    fs::copy("testcase.elf", dst_file).expect("Unable to create copy of log file");
+        //}
 
-        let _ = std::fs::remove_file("testcase_state.log");
-        let _ = std::fs::remove_file("testcase.elf_spike.log");
+        //let _ = std::fs::remove_file("testcase_state.log");
+        //let _ = std::fs::remove_file("testcase.elf_spike.log");
 
-        return Ok(interesting);
+        //return Ok(interesting);
     }
 
     #[inline]

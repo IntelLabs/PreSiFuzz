@@ -50,5 +50,33 @@ $ AFL_LAUNCHER_CLIENT=1 ./cva6_vcs_fuzzer
 
 To run multiple fuzzer instances:
 ```
-for i in {1..10}; do AFL_LAUNCHER_CLIENT=$i ./cva6_vcs_fuzzer ; done
+for i in {1..10}; do AFL_LAUNCHER_CLIENT=$i ./cva6_vcs_fuzzer & done
 ```
+
+# Customizing
+
+The fuzzer is bootstraped using the seed files into the `seeds` folder. Feel free to customize the content of this file with any interesting seed.
+When starting the fuzzer loads the initial inputs (i.e., the seeds), and only keep interesting ones in the corpus (i.e., coverage novelty).
+Coverage novelty consider any changes for all supported code coverage metrics on vcs, i.e., branch, conditional, line, toggle, and FSM.
+Then, starts the fuzzer loop that iteratively calls the different stages. 
+StdMutationalStage is responsible for generating new mutant by applying mutation to the existing testcase in the corpus. 
+The mutations work at the ISA level by first deserializing the binary testcase into stream of instruction, then different mutations might be applied (e.g., adding instruction, removing instruction, changing opcode, ..). 
+The mutation can easily be customized by changing `../../libpresifuzz_mutators/src/riscv_isa.rs`. 
+The generated testcase is then inserted into a template ELF file by simplify injecting the code after the `payload` label. 
+This template contains epilogue and prologue code. 
+The current version is very simple. We first init registers to some known values, and we change the `mtvec` to points to our own trap handler.
+The trap handler is there to stop earlier the testcase execution if we trop too often. Otherwise, it always try to return to the instruction after the failing one.
+This version is a naive implementation, better performance could be achieved with some changes on the testharness (e.g., early simulation stop, irq support).
+
+
+# Ploting data
+
+The fuzzer saves statistics into the `sync`directory.
+It is possible to plot coverage over time using the `plot.py`:
+
+```python
+python3 ./plot.py -m branch -d ./sync
+```
+
+The `-m` option is there to provide the coverage metric that is either tgl, cond, branch, line, fsm.
+The `-d` points to the directory where stats are saved.

@@ -45,15 +45,19 @@ extern "C" {
     uint32_t covered;
     char*    filter;
   }CoverageMap;
+  
+  void instance_map_size( npiCovHandle scope, npiCovHandle test, CoverageMap* cov_map);
+  void compute_size( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map);
+  size_t compute_map_size(npiCovHandle db, unsigned coverage_type, char* filter);
 
   void dump_instance_coverage( npiCovHandle scope, npiCovHandle test, CoverageMap* cov_map);
   npiCovHandle vdb_cov_init(const char* vdb_file_path);
   void vdb_cov_end(npiCovHandle db);
   void compute_score( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map);
   void update_cov_map(npiCovHandle db, uint32_t* map, unsigned map_size, unsigned coverage_type, char* filter);
-  void npi_init();
+  void vdb_init();
   
-  void npi_init() {
+  void vdb_init() {
 #ifdef DUMMY_LIB
     return;
 #else
@@ -89,6 +93,50 @@ extern "C" {
 #else
     npi_cov_close( db );
     npi_end();
+#endif
+  }
+
+  void instance_map_size( npiCovHandle scope, npiCovHandle test, CoverageMap* cov_map)
+  {
+#ifdef DUMMY_LIB
+    return;
+#else
+    npiCovHandle inst_iter = npi_cov_iter_start( npiCovInstance, scope );
+    npiCovHandle inst = NULL;
+    while ( (inst = npi_cov_iter_next( inst_iter )) )
+    {
+      std::string cov_full_name = npi_cov_get_str( npiCovFullName, inst); 
+      if( cov_full_name.rfind(cov_map->filter, 0) == 0  ) {
+        // printf( "%s\n", npi_cov_get_str( npiCovFullName, inst ));
+        compute_size( inst, test, cov_map);
+      }
+      
+      instance_map_size( inst, test, cov_map);
+    }
+    npi_cov_iter_stop( inst_iter );
+#endif
+  }
+
+  void compute_size( npiCovHandle inst, npiCovHandle test, CoverageMap* cov_map)
+  {
+#ifdef DUMMY_LIB
+    return;
+#else
+    npiCovHandle metric = npi_cov_handle( (npiCovObjType_e)cov_map->type, inst );
+    npiCovHandle iter = npi_cov_iter_start( npiCovChild, metric );
+    npiCovHandle block;
+    while ( (block = npi_cov_iter_next( iter )) )
+    {
+      int covered =  npi_cov_get( npiCovCovered, block, test );
+      if(covered < 0)
+        covered = 0;
+
+      int coverable = npi_cov_get( npiCovCoverable, block, NULL );
+
+      cov_map->coverable = cov_map->coverable + coverable;
+      cov_map->covered = cov_map->covered + covered;
+    }
+    npi_cov_iter_stop( iter );
 #endif
   }
 
@@ -231,25 +279,71 @@ extern "C" {
 }
 #endif
 
+size_t compute_map_size(npiCovHandle db, unsigned coverage_type, char* filter) {
+#ifdef DUMMY_LIB
+    return 1024;
+#else
+    CoverageMap cov_map;
+    cov_map.map = NULL;
+    cov_map.write_byte_index = 2;
+    cov_map.write_bit_index = 0;
+    cov_map.type = coverage_type;
+    cov_map.size = 1024;
+    cov_map.coverable = 0;
+    cov_map.covered = 0;
+    cov_map.filter = filter;
+
+    // Iterate test and merge test
+    npiCovHandle test_iter = npi_cov_iter_start( npiCovTest, db );
+    npiCovHandle test;
+    npiCovHandle merged_test = NULL;
+    while ( (test = npi_cov_iter_next( test_iter) ) )
+    {
+      if ( merged_test == NULL )
+        merged_test = test;
+      else
+      {
+        merged_test = npi_cov_merge_test( merged_test, test );
+        if ( merged_test == NULL )
+        {
+          return 0;
+        }
+      }
+    }
+    npi_cov_iter_stop( test_iter );
+
+    // Dump instance requested type score from top
+    instance_map_size((void*)db, merged_test, &cov_map);
+
+    npi_cov_close( db );
+    npi_end();
+
+    return cov_map.coverable;
+#endif 
+}
 
 #ifdef C_APP
 int main(int argc, char** argv) {
 
-  npi_init();
+  vdb_init();
 
   void* db = vdb_cov_init(argv[1]);
-
-  unsigned size = 41678 * 2;
-  uint32_t map[size] = {0};
   char* filter = "";
 
-  update_cov_map(db, (uint32_t*)&map, size, 5, filter);
+  unsigned metric = atoi(argv[2]);
 
-  printf("[");
-  unsigned i;
-  for(i=0; i<size; i++) {
-    printf("%u ", map[i]);
-  }
-  printf("]");
+  size_t size = compute_map_size(db, metric, filter);
+  printf("Map size is %d for metric %d", size, metric);
+
+  //uint32_t map[size] = {0};
+
+  //update_cov_map(db, (uint32_t*)&map, size, 5, filter);
+
+  //printf("[");
+  //unsigned i;
+  //for(i=0; i<size; i++) {
+  //  printf("%u ", map[i]);
+  //}
+  //printf("]");
 }
 #endif

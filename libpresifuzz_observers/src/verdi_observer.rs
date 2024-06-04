@@ -18,10 +18,13 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 use libc::{c_uint, c_char, c_void};
-use nix::{sys::wait::waitpid,unistd::{fork, ForkResult}};
+use nix::{sys::wait::waitpid,unistd::{fork, ForkResult, dup2, close}};
 use libafl_bolts::{
     ownedref::OwnedMutSlice, AsIter, AsIterMut, AsMutSlice, AsSlice, HasLen, Named,
 };
+
+use std::time::Instant;
+use core::time::Duration;
 
 extern crate fs_extra;
 use std::{
@@ -43,7 +46,7 @@ extern "C" {
 
     fn update_cov_map(db: NpiCovHandle, map: *mut c_uint, map_size: c_uint, coverage_type: c_uint, filter: *const c_char) -> c_void;
 
-    fn npi_init() -> c_void;
+    fn vdb_init() -> c_void;
 }
 
 /// A simple observer, just overlooking the runtime of the target.
@@ -66,6 +69,7 @@ pub enum VerdiCoverageMetric {
     FSM = 6,
     Condition = 7,
     Branch = 8,
+    Assert = 9,
 }
 
 impl VerdiMapObserver
@@ -75,7 +79,7 @@ impl VerdiMapObserver
     #[must_use]
     pub fn new(name: &'static str, workdir: &String, size: usize, metric: &VerdiCoverageMetric, filter: &String) -> Self {
 
-        // unsafe { npi_init();}
+        // unsafe { vdb_init();}
         Self {
             name: name.to_string(),
             initial: u32::default(),
@@ -205,7 +209,7 @@ where
                 let pmap = self.map.as_mut_ptr();
                 self.map.set_len(self.cnt);
 
-                npi_init();
+                vdb_init();
 
                 let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
                 let db = vdb_cov_init(vdb.as_ptr());
@@ -291,7 +295,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     pub fn new(name: &'static str, workdir: &str, map: &'a mut [u32], metric: &VerdiCoverageMetric, filter: &String) -> Self {
         assert!(map.len() >= N);
         // unsafe {
-            // npi_init();
+            // vdb_init();
         // }
         Self {
             name: name.to_string(),
@@ -311,7 +315,7 @@ impl<'a, const N: usize> VerdiShMapObserver<'a, N>
     #[must_use]
     pub unsafe fn from_mut_ptr(name: &'static str, workdir: &str, map_ptr: *mut u32, metric: &VerdiCoverageMetric, filter: &String) -> Self
     {
-        // npi_init();
+        // vdb_init();
 
         Self {
             name: name.to_string(),
@@ -461,20 +465,61 @@ where
 
         let vdb = CString::new("./Coverage.vdb").expect("CString::new failed");
 
+        let (pipe_read, pipe_write) = nix::unistd::pipe().expect("Failed to create pipe");
+
         match unsafe{fork()} {
             Ok(ForkResult::Parent{child, ..}) => {
-                match waitpid(child, None) {
-                   Ok(_) => return Ok(()),
-                   Err(_) => {
-                       println!("libafl_verdi failed to parse vdb using libNPI.so ...");
-                       return Ok(());
+
+                close(pipe_write).expect("Failed to close write end of the pipe");
+
+                let start_time = Instant::now();
+
+                // Wait for child process to finish or timeout (30 seconds)
+                loop {
+                    match nix::sys::wait::waitpid(Some(child), Some(nix::sys::wait::WaitPidFlag::WNOHANG)) {
+                        Ok(nix::sys::wait::WaitStatus::Exited(_, _)) => {
+                            // Child process finished
+                            //println!("Child process finished successfully");
+                            close(pipe_read).expect("Failed to close write end of the pipe");
+                            return Ok(());
+                        },
+                        Ok(_) => {
+                            // Child process still running
+                            if start_time.elapsed() >= Duration::from_secs(30) {
+                                // Timeout reached
+                                println!("Timeout reached, killing libNPI process");
+                                // Kill the child process
+                                close(pipe_read).expect("Failed to close write end of the pipe");
+                                nix::sys::signal::kill(child, nix::sys::signal::SIGKILL).expect("Failed to kill child process");
+                                return Ok(());
+                            }
+                            // Sleep for a short duration to avoid busy-waiting
+                            std::thread::sleep(Duration::from_millis(100));
+                        },
+                        Err(err) => {
+                            eprintln!("Error while waiting for libNPI process: {}", err);
+                            close(pipe_read).expect("Failed to close write end of the pipe");
+                            return Ok(());
+                        }
                     }
                 }
+
+                // match waitpid(child, None) {
+                   // Ok(_) => return Ok(()),
+                   // Err(_) => {
+                       // println!("libafl_verdi failed to parse vdb using libNPI.so ...");
+                       // return Ok(());
+                    // }
+                // }
             }
             Ok(ForkResult::Child) => {
                 unsafe {
 
-                    npi_init();
+                    close(pipe_read).expect("Failed to close write end of the pipe");
+
+                    dup2(pipe_write, nix::libc::STDOUT_FILENO).expect("Failed to redirect libNPI stdout"); 
+
+                    vdb_init();
 
                     let db = vdb_cov_init(vdb.as_ptr());
                     if db as usize == 0 {
@@ -485,6 +530,8 @@ where
                     update_cov_map(db, pmap as *mut c_uint, N as c_uint, self.metric as c_uint, filter.as_ptr());
 
                     vdb_cov_end(db);
+                    
+                    close(pipe_write).expect("Failed to close write end of the pipe");
 
                     process::exit(0);
                 }
@@ -619,7 +666,7 @@ mod tests {
                 Ok(ForkResult::Child) => {
                     unsafe {
 
-                        npi_init();
+                        vdb_init();
 
                         let db = vdb_cov_init(vdb.as_ptr());
                         if( (db as usize) == 0) {
