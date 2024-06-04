@@ -7,12 +7,13 @@ use std::env;
 
 fn main() {
 
-    if Ok("runner".to_owned()) == env::var("PROFILE") {
+    if Ok("test".to_owned()) == env::var("PROFILE") {
         cc::Build::new()
             .cpp(true) // Switch to C++ library compilation.
             .file("./src/npi_c.c")
             .flag("-DDUMMY_LIB")
             .compile("npi_c");
+
     } else {
         let key = "VERDI_HOME";
         let mut verdi_lib = match env::var(key) {
