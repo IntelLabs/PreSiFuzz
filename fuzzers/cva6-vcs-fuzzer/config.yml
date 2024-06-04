@@ -1,0 +1,12 @@
+fuzzer:
+  max_testcase_size: 128
+simv:
+  vcs_args: "+permissive +tohost_addr=80001000 +elf_file=./testcase.elf +permissive-off ++./testcase.elf +debug_disable=1 +ntb_random_seed=1 -sv_lib /home/nasm/riscv/lib/libfesvr"
+  plus_args:
+  cov_enable: true
+  coverage_metrics: "line+fsm+cond+tgl+branch"
+  coverage_directory: "Coverage.vdb"
+  reset_coverage_before_use: true
+  system_timeout_s: 180
+  vcs_timeout: "30us"
+  multi_seed: 0
