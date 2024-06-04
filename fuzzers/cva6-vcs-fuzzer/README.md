@@ -15,6 +15,17 @@ Follow the installation instructions from the Spike GitHub repository.
 
 * [RISC-V GNU Compiler Toolchain] (https://github.com/riscv-collab/riscv-gnu-toolchain)
 
+With everything properly installed, please make sure to set the right environment variables in your `bashrc` or equivalent file. The fuzzer expects the following configuration in bash:
+
+Please, find below an example of configuratio
+```bash
+export RISCV=$HOME/riscv
+export VERDI_HOME=/usr/synopsys/verdi/U-2023.03-SP2
+export VCS_HOME=/usr/synopsys/vcs/U-2023.03-SP2
+export SNPSLMD_LICENSE_FILE=server@server.fr
+export LD_LIBRARY_PATH=$VERDI_HOME/share/NPI/lib/linux64
+```
+
 ## Building
 
 The build.rs script performs the following tasks:
@@ -58,10 +69,12 @@ for i in {1..10}; do AFL_LAUNCHER_CLIENT=$i ./cva6_vcs_fuzzer & done
 The fuzzer is bootstraped using the seed files into the `seeds` folder. Feel free to customize the content of this file with any interesting seed.
 When starting the fuzzer loads the initial inputs (i.e., the seeds), and only keep interesting ones in the corpus (i.e., coverage novelty).
 Coverage novelty consider any changes for all supported code coverage metrics on vcs, i.e., branch, conditional, line, toggle, and FSM.
+
 Then, starts the fuzzer loop that iteratively calls the different stages. 
 StdMutationalStage is responsible for generating new mutant by applying mutation to the existing testcase in the corpus. 
 The mutations work at the ISA level by first deserializing the binary testcase into stream of instruction, then different mutations might be applied (e.g., adding instruction, removing instruction, changing opcode, ..). 
 The mutation can easily be customized by changing `../../libpresifuzz_mutators/src/riscv_isa.rs`. 
+
 The generated testcase is then inserted into a template ELF file by simplify injecting the code after the `payload` label. 
 This template contains epilogue and prologue code. 
 The current version is very simple. We first init registers to some known values, and we change the `mtvec` to points to our own trap handler.
