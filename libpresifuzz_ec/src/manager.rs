@@ -390,8 +390,8 @@ where
                 let serialized_event = serde_json::to_string(&event).expect("Failed to serialize event");
 
                 //Write the serialized binary data to a file
-                let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
-                let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
+                let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
+                let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
 
                 println!("sync on dir: {}", self.sync_dir);
     
@@ -399,16 +399,16 @@ where
                     let mut file = File::create(event_filename).expect("Failed to persist event on systemfile");
                     file.write_all(serialized_event.as_bytes()).expect("Failed to write to file");
 
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
-                    let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
+                    let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                     fs::rename(event_filename, new_filename)?;
                 } else {
                     
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
-                    let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
+                    let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                     fs::rename(new_filename, event_filename)?;
 
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
                     let mut file = OpenOptions::new()
                         .write(true)
                         .append(true)
@@ -418,8 +418,8 @@ where
                     file.write_all("\n".as_bytes()).expect("Failed to write to file");
                     file.write_all(serialized_event.as_bytes()).expect("Failed to write to file");
 
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
-                    let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
+                    let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                     fs::rename(event_filename, new_filename)?;
                 }
             },
@@ -473,8 +473,8 @@ where
                 let serialized_event = serde_json::to_string(&event).expect("Failed to serialize event");
 
                 //Write the serialized binary data to a file
-                let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
-                let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
+                let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
+                let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
 
                 println!("sync on dir: {}", self.sync_dir);
     
@@ -482,16 +482,16 @@ where
                     let mut file = File::create(event_filename).expect("Failed to persist event on systemfile");
                     file.write_all(serialized_event.as_bytes()).expect("Failed to write to file");
 
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
-                    let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
+                    let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                     fs::rename(event_filename, new_filename)?;
                 } else {
                     
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
-                    let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
+                    let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                     fs::rename(new_filename, event_filename)?;
 
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
                     let mut file = OpenOptions::new()
                         .write(true)
                         .append(true)
@@ -501,8 +501,8 @@ where
                     file.write_all("\n".as_bytes()).expect("Failed to write to file");
                     file.write_all(serialized_event.as_bytes()).expect("Failed to write to file");
 
-                    let event_filename = format!("{}/client_{}_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
-                    let new_filename = format!("{}/client_{}_{}.event.stats", self.sync_dir, &self.client_id, self.count);
+                    let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
+                    let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                     fs::rename(event_filename, new_filename)?;
                 }
             },
