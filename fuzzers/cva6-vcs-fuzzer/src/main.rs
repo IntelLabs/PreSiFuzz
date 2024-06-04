@@ -71,7 +71,6 @@ use clap::{App, Arg};
 use clap::AppSettings;
 
 use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
-use libpresifuzz_feedbacks::sim_time_feedback::SimTimeFeedback;
 
 use libpresifuzz_observers::verdi_observer::VerdiShMapObserver;
 use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
@@ -79,16 +78,11 @@ use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
 pub mod simv;
 use crate::simv::SimvCommandConfigurator;
 
-use libpresifuzz_observers::xtrace_observer::XTraceObserver;
-use libpresifuzz_observers::stats_observer::StatsObserver;
-
 use libpresifuzz_mutators::riscv_isa::riscv_mutations;
 use libpresifuzz_mutators::scheduled::StdISAScheduledMutator;
 
 use libpresifuzz_ec::manager::*;
 use libpresifuzz_ec::llmp::Launcher;
-
-use libpresifuzz_stages::mutational_objdump_sanitized::StdObjdumpSanitizedMutationalStage;
 use libpresifuzz_stages::sync::SyncFromDiskStage;
 use libpresifuzz_feedbacks::transferred::TransferredFeedback;
 
@@ -179,109 +173,115 @@ pub fn fuzz() {
         std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
 
         // allocate a shared memory for coverage map
-        const MAP_SIZE: usize = 1024 * 232;
-        let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
-        let shmem_buf = shmem.as_mut_slice();
-        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
         
         // create verdi observer and feedback
         // monitor Toogle coverage 
         // apply filter if needed 
+        // 964646 coverable tgl signals
+        // map encoding is 1bit per signal
+        // 964646/8
+        const TGL_MAP_SIZE: usize = 120581+8;
+        let mut shmem = shmem_provider_client.new_shmem(TGL_MAP_SIZE).unwrap();
+        let shmem_buf = shmem.as_mut_slice();
+        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
         let (verdi_feedback_tgl, verdi_observer_tgl) = {
             let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
+                VerdiShMapObserver::<{ TGL_MAP_SIZE / 4 }>::from_mut_ptr(
                     "verdi_tgl",
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Toggle,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane".to_string()
                 )
             };
 
-            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_tgl", MAP_SIZE, workdir);
+            let feedback = VerdiFeedback::<{TGL_MAP_SIZE/4}>::new_with_observer("verdi_tgl", TGL_MAP_SIZE, workdir);
 
             (feedback, verdi_observer)
         };
 
-        let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
-        let shmem_buf = shmem.as_mut_slice();
-        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
-        let (verdi_feedback_fsm, verdi_observer_fsm) = {
-            let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
-                    "verdi_fsm",
-                    workdir,
-                    shmem_ptr,
-                    &VerdiCoverageMetric::FSM,
-                    &"".to_string()
-                )
-            };
+        // FSM seems buggy, disable
+        //const FSM_MAP_SIZE: usize = (??.0/8.0).ceil() as usize;
+        //let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
+        //let shmem_buf = shmem.as_mut_slice();
+        //let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
+        //let (verdi_feedback_fsm, verdi_observer_fsm) = {
+        //    let verdi_observer = unsafe {
+        //        VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
+        //            "verdi_fsm",
+        //            workdir,
+        //            shmem_ptr,
+        //            &VerdiCoverageMetric::FSM,
+        //            &"ariane_tb.dut.i_ariane".to_string()
+        //        )
+        //    };
 
-            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_fsm", MAP_SIZE, workdir);
+        //    let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_fsm", MAP_SIZE, workdir);
 
-            (feedback, verdi_observer)
-        };
+        //    (feedback, verdi_observer)
+        //};
 
-        let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
+        // 24889 cond coverable
+        const COND_MAP_SIZE: usize = 3112+8;
+        let mut shmem = shmem_provider_client.new_shmem(COND_MAP_SIZE).unwrap();
         let shmem_buf = shmem.as_mut_slice();
         let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
         let (verdi_feedback_condition, verdi_observer_condition) = {
             let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
+                VerdiShMapObserver::<{ COND_MAP_SIZE / 4 }>::from_mut_ptr(
                     "verdi_condition",
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Condition,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane".to_string()
                 )
             };
 
-            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_condition", MAP_SIZE, workdir);
-
+            let feedback = VerdiFeedback::<{COND_MAP_SIZE/4}>::new_with_observer("verdi_condition", COND_MAP_SIZE, workdir);
             (feedback, verdi_observer)
         };
 
-        let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
+        // 17599 coverable lines
+        const LINE_MAP_SIZE: usize = 2200+8;
+        let mut shmem = shmem_provider_client.new_shmem(LINE_MAP_SIZE).unwrap();
         let shmem_buf = shmem.as_mut_slice();
         let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
         let (verdi_feedback_line, verdi_observer_line) = {
             let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
+                VerdiShMapObserver::<{ LINE_MAP_SIZE / 4 }>::from_mut_ptr(
                     "verdi_line",
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Line,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane".to_string()
                 )
             };
 
-            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_line", MAP_SIZE, workdir);
-
+            let feedback = VerdiFeedback::<{LINE_MAP_SIZE/4}>::new_with_observer("verdi_line", LINE_MAP_SIZE, workdir);
             (feedback, verdi_observer)
         };
 
-
-        let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
+        // 12349 branches coverable
+        const BRANCH_MAP_SIZE: usize = 1544+8;
+        let mut shmem = shmem_provider_client.new_shmem(BRANCH_MAP_SIZE).unwrap();
         let shmem_buf = shmem.as_mut_slice();
         let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
         let (verdi_feedback_branch, verdi_observer_branch) = {
             let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
+                VerdiShMapObserver::<{ BRANCH_MAP_SIZE / 4 }>::from_mut_ptr(
                     "verdi_branch",
                     workdir,
                     shmem_ptr,
                     &VerdiCoverageMetric::Branch,
-                    &"".to_string()
+                    &"ariane_tb.dut.i_ariane".to_string()
                 )
             };
-
-            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_branch", MAP_SIZE, workdir);
-
+            let feedback = VerdiFeedback::<{BRANCH_MAP_SIZE/4}>::new_with_observer("verdi_branch", BRANCH_MAP_SIZE, workdir);
             (feedback, verdi_observer)
         };
 
-        let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_tgl, verdi_feedback_fsm, verdi_feedback_branch, verdi_feedback_condition);
-
+        let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_tgl, verdi_feedback_branch, verdi_feedback_condition);
+        //verdi_feedback_fsm,
         let mut objective = feedback_not!(TransferredFeedback);
 
         // Instantiate State with feedback, objective, in/out corpus
@@ -304,8 +304,8 @@ pub fn fuzz() {
         // Finally, instantiate the fuzzer
         let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
   
-        let mut executor = simv.into_executor(tuple_list!(verdi_observer_line, verdi_observer_tgl, verdi_observer_fsm, verdi_observer_branch, verdi_observer_condition));
-
+        let mut executor = simv.into_executor(tuple_list!(verdi_observer_line, verdi_observer_tgl, verdi_observer_branch, verdi_observer_condition));
+        //verdi_observer_fsm,
 
         let corpus_dir = PathBuf::from(corpus_dir.to_string());
 

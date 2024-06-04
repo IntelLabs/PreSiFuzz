@@ -35,6 +35,15 @@ fn main() {
         let cva6_dir = cva6_dir.as_os_str().to_str().unwrap().to_string();
         std::env::set_current_dir(&cva6_dir).expect("Unable to change into cva6 directory");
 
+        println!("INFO: cheking out good commit");
+
+        assert!(Command::new("git")
+            .arg("checkout")
+            .arg("b401ab3868d053a00779add51ea37cf3b8c98b21")
+            .status()
+            .unwrap()
+            .success());
+
         println!("INFO: updating submodules");
 
         assert!(Command::new("git")
@@ -45,15 +54,6 @@ fn main() {
                 .status()
                 .unwrap()
                 .success());
-
-        println!("INFO: cheking out good commit");
-
-        assert!(Command::new("git")
-            .arg("checkout")
-            .arg("b401ab3868d053a00779add51ea37cf3b8c98b21")
-            .status()
-            .unwrap()
-            .success());
 
         assert!(Command::new("git")
             .arg("apply")

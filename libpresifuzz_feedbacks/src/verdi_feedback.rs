@@ -5,6 +5,7 @@
 use std::str;
 use core::{
     fmt::Debug,
+    time::Duration,
 };
 use serde::{Deserialize, Serialize};
 use libafl::{
@@ -18,6 +19,7 @@ use libafl::{
     state::{State},
 };
 
+use libafl_bolts::current_time;
 use libafl_bolts::Named;
 use libafl_bolts::AsSlice;
 use libafl::monitors::{UserStats, UserStatsValue, AggregatorOps};
@@ -39,7 +41,8 @@ pub struct VerdiFeedback<const N: usize>
     id: u32,
     workdir: String,
     score: f32,
-    save_on_new_coverage: bool
+    save_on_new_coverage: bool,
+    start_time: Duration,
 }
 
 impl<S, const N: usize> Feedback<S> for VerdiFeedback<N>
@@ -144,24 +147,36 @@ where
         
             self.score = (covered as f32 / coverable as f32) * 100.0;
 
+            println!("Coverage {} score is {}", self.name, self.score);
+
             // Save scrore into state
             manager.fire(
                 state,
                 Event::UpdateUserStats {
                     name: format!("coverage_{}", self.name()).to_string(),
-                    value: UserStats::new( UserStatsValue::Ratio(covered as u64, coverable as u64), AggregatorOps::Avg),
+                    value: UserStats::new( UserStatsValue::Ratio(covered as u64, coverable as u64), AggregatorOps::None),
+                    phantom: Default::default(),
+                },
+            )?;
+
+            // Save scrore into state
+            manager.fire(
+                state,
+                Event::UpdateUserStats {
+                    name: format!("time_{}", self.name()).to_string(),
+                    value: UserStats::new( UserStatsValue::Number((current_time() - self.start_time).as_secs()), AggregatorOps::None),
                     phantom: Default::default(),
                 },
             )?;
 
             let mut backup_path = self.workdir.clone();
-            backup_path.push_str(&format!("/backup_{}", self.id));
+            backup_path.push_str(&format!("/coverage_{}_{}.vdb", self.name(), self.id));
             
             manager.fire(
                 state,
                 Event::UpdateUserStats {
                     name: "VDB".to_string(),
-                    value: UserStats::new( UserStatsValue::String( backup_path.clone()), AggregatorOps::Avg),
+                    value: UserStats::new( UserStatsValue::String( backup_path.clone()), AggregatorOps::None),
                     phantom: Default::default(),
                 },
             )?;
@@ -228,7 +243,8 @@ impl<const N: usize> VerdiFeedback<N>
             id: 0,
             workdir: workdir.to_string(),
             score: 0.0,
-            save_on_new_coverage: false
+            save_on_new_coverage: false,
+            start_time: current_time(),
         }
     }
 }
