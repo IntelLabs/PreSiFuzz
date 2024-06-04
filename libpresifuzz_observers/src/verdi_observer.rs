@@ -479,15 +479,17 @@ where
                     match nix::sys::wait::waitpid(Some(child), Some(nix::sys::wait::WaitPidFlag::WNOHANG)) {
                         Ok(nix::sys::wait::WaitStatus::Exited(_, _)) => {
                             // Child process finished
-                            println!("Child process finished successfully");
+                            //println!("Child process finished successfully");
+                            close(pipe_read).expect("Failed to close write end of the pipe");
                             return Ok(());
                         },
                         Ok(_) => {
                             // Child process still running
                             if start_time.elapsed() >= Duration::from_secs(30) {
                                 // Timeout reached
-                                println!("Timeout reached, killing child process");
+                                println!("Timeout reached, killing libNPI process");
                                 // Kill the child process
+                                close(pipe_read).expect("Failed to close write end of the pipe");
                                 nix::sys::signal::kill(child, nix::sys::signal::SIGKILL).expect("Failed to kill child process");
                                 return Ok(());
                             }
@@ -495,7 +497,8 @@ where
                             std::thread::sleep(Duration::from_millis(100));
                         },
                         Err(err) => {
-                            eprintln!("Error while waiting for child process: {}", err);
+                            eprintln!("Error while waiting for libNPI process: {}", err);
+                            close(pipe_read).expect("Failed to close write end of the pipe");
                             return Ok(());
                         }
                     }
@@ -512,7 +515,7 @@ where
             Ok(ForkResult::Child) => {
                 unsafe {
 
-                    close(pipe_read).expect("Failed to close read end of the pipe");
+                    close(pipe_read).expect("Failed to close write end of the pipe");
 
                     dup2(pipe_write, nix::libc::STDOUT_FILENO).expect("Failed to redirect libNPI stdout"); 
 
@@ -527,6 +530,8 @@ where
                     update_cov_map(db, pmap as *mut c_uint, N as c_uint, self.metric as c_uint, filter.as_ptr());
 
                     vdb_cov_end(db);
+                    
+                    close(pipe_write).expect("Failed to close write end of the pipe");
 
                     process::exit(0);
                 }
