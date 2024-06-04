@@ -62,6 +62,7 @@ cargo build
 The target directory contains examples of design to demonstrate the approach.
 
 * [OpenTitan](/doc/opentitan.md)
+* [CVA6](fuzzers/cva6-vcs-fuzzer/README.md)
 
 # Documentation
 
@@ -79,3 +80,10 @@ PreSiFuzz calls this library after each simulation, the leakage quickly becomes
 huge. We get in touch with Synopsys support who was very reactive, and was able
 to fix the problem quickly. If you are concerned by this bug, we advise you to
 use VERDI 2023SP1 which should be released in March 2023.
+
+## libNPI.so not found
+
+Make sure `VERDI_HOME` is properly set and then simply update `LD_LIBRARY_PATH`:
+```bash
+export LD_LIBRARY_PATH=$VERDI_HOME/share/NPI/lib/linux64/
+```
