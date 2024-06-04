@@ -62,6 +62,7 @@ where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>,
     {
+
         #[cfg(feature = "debug")]
         cprintln!("<red>[WARNING]</red> Skipping trace comparison feedback because it is not implemented for cva6 ...");
         return Ok(false);

@@ -83,7 +83,6 @@ use libpresifuzz_mutators::scheduled::StdISAScheduledMutator;
 
 use libpresifuzz_ec::manager::*;
 use libpresifuzz_ec::llmp::Launcher;
-
 use libpresifuzz_stages::sync::SyncFromDiskStage;
 use libpresifuzz_feedbacks::transferred::TransferredFeedback;
 
@@ -178,7 +177,6 @@ pub fn fuzz() {
         // create verdi observer and feedback
         // monitor Toogle coverage 
         // apply filter if needed 
-
         // 964646 coverable tgl signals
         // map encoding is 1bit per signal
         // 964646/8
@@ -240,7 +238,6 @@ pub fn fuzz() {
             };
 
             let feedback = VerdiFeedback::<{COND_MAP_SIZE/4}>::new_with_observer("verdi_condition", COND_MAP_SIZE, workdir);
-
             (feedback, verdi_observer)
         };
 
@@ -261,7 +258,6 @@ pub fn fuzz() {
             };
 
             let feedback = VerdiFeedback::<{LINE_MAP_SIZE/4}>::new_with_observer("verdi_line", LINE_MAP_SIZE, workdir);
-
             (feedback, verdi_observer)
         };
 
@@ -280,15 +276,12 @@ pub fn fuzz() {
                     &"ariane_tb.dut.i_ariane".to_string()
                 )
             };
-
             let feedback = VerdiFeedback::<{BRANCH_MAP_SIZE/4}>::new_with_observer("verdi_branch", BRANCH_MAP_SIZE, workdir);
-
             (feedback, verdi_observer)
         };
 
         let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_tgl, verdi_feedback_branch, verdi_feedback_condition);
         //verdi_feedback_fsm,
-
         let mut objective = feedback_not!(TransferredFeedback);
 
         // Instantiate State with feedback, objective, in/out corpus
@@ -312,7 +305,7 @@ pub fn fuzz() {
         let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
   
         let mut executor = simv.into_executor(tuple_list!(verdi_observer_line, verdi_observer_tgl, verdi_observer_branch, verdi_observer_condition));
-        //verdi_observer_fsm,  
+        //verdi_observer_fsm,
 
         let corpus_dir = PathBuf::from(corpus_dir.to_string());
 
