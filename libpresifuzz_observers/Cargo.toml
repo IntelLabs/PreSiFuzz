@@ -20,10 +20,6 @@ input_injection = []
 std = []
 csv_dump = []
 
-[profile.clippy]
-opt-level = 3
-overflow-checks = false
-
 [build]
 build = "build.rs"
 
