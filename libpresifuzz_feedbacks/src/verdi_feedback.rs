@@ -28,6 +28,10 @@ use std::process::Command;
 use std::path::Path;
 use libafl::inputs::Input;
 
+use libafl::prelude::MapFeedbackMetadata;
+use libafl::state::HasMetadata;
+use libafl::prelude::HasNamedMetadata;
+
 use libpresifuzz_observers::verdi_observer::VerdiShMapObserver as VerdiObserver;
 
 /// Nop feedback that annotates execution time in the new testcase, if any
@@ -47,8 +51,14 @@ pub struct VerdiFeedback<const N: usize>
 
 impl<S, const N: usize> Feedback<S> for VerdiFeedback<N>
 where
-    S: UsesInput + State,
+    S: UsesInput + State + HasNamedMetadata,
 {
+    fn init_state(&mut self, state: &mut S) -> Result<(), Error> {
+        // Initialize `MapFeedbackMetadata` with an empty vector and add it to the state.
+        // The `MapFeedbackMetadata` would be resized on-demand in `is_interesting`
+        state.add_named_metadata(MapFeedbackMetadata::<u32>::default(), &self.name);
+        Ok(())
+    }
 
     #[allow(clippy::wrong_self_convention)]
     fn is_interesting<EM, OT>(
@@ -209,11 +219,14 @@ where
         &mut self,
         _state: &mut S,
         _observers: &OT,
-        _testcase: &mut Testcase<S::Input>,
+        testcase: &mut Testcase<S::Input>,
     ) -> Result<(), Error> 
     where
         OT: ObserversTuple<S>,
     {
+        let metadata = MapFeedbackMetadata::<u32>::with_history_map(self.history.clone());
+        testcase.metadata_map_mut().insert(metadata);
+
         Ok(())
     }
 
