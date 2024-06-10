@@ -28,7 +28,6 @@ use std::process::Command;
 use std::path::Path;
 use libafl::inputs::Input;
 
-use libafl::prelude::MapNoveltiesMetadata;
 use libafl::prelude::MapFeedbackMetadata;
 use libafl::state::HasMetadata;
 use libafl::prelude::HasNamedMetadata;
@@ -218,8 +217,8 @@ where
     #[inline]
     fn append_metadata<OT>(
         &mut self,
-        state: &mut S,
-        observers: &OT,
+        _state: &mut S,
+        _observers: &OT,
         testcase: &mut Testcase<S::Input>,
     ) -> Result<(), Error> 
     where
