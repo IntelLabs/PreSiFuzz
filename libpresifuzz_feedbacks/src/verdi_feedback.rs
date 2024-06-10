@@ -114,7 +114,10 @@ where
                 } 
             }
         }
-            
+
+        self.score = (o_map[0] as f32 / o_map[1] as f32) * 100.0;
+        println!("Analyzing vdb with coverage {} score at {}% for {}/{}", self.name, self.score, o_map[0], o_map[1]);
+
         let mut coverable: u32 = 0;
         let mut covered: u32 = 0;
 
@@ -133,12 +136,13 @@ where
                     } else if history_nth == 1 {
                         covered += 1;
                     }
-
+                    
                     coverable += 1;
 
-                    if _k*32+i > o_map[1].try_into().unwrap() {
+                    if coverable >= o_map[1].try_into().unwrap() {
                         break 'traverse_map;
                     }
+                    
                 }
             }
 
@@ -147,7 +151,7 @@ where
         
             self.score = (covered as f32 / coverable as f32) * 100.0;
 
-            println!("Coverage {} score is {}", self.name, self.score);
+            println!("Merge coverage {} score is {}% {}/{}", self.name, self.score, covered, coverable);
 
             // Save scrore into state
             manager.fire(
