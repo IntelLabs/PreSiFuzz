@@ -23,6 +23,7 @@ members = [
     "libpresifuzz_riscv",
     "libpresifuzz_stages",
 ]
+resolver="2"
 exclude = [
     "fuzzers",
     "dep"
