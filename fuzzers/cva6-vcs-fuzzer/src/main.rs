@@ -282,12 +282,14 @@ pub fn fuzz() {
 
         let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_tgl, verdi_feedback_branch, verdi_feedback_condition);
         //verdi_feedback_fsm,
-        let mut objective = feedback_not!(TransferredFeedback);
+        //let mut objective = feedback_not!(TransferredFeedback);
+        let mut objective = ();
 
         // Instantiate State with feedback, objective, in/out corpus
         let mut state = StdState::new(
             StdRand::with_seed(current_nanos()),
-            InMemoryCorpus::<BytesInput>::new(),
+            OnDiskCorpus::<BytesInput>::new(&PathBuf::from("./corpus")).unwrap(),
+            //InMemoryCorpus::<BytesInput>::new(),
             InMemoryCorpus::new(),
             &mut feedback,
             &mut objective,
@@ -299,7 +301,8 @@ pub fn fuzz() {
         let scheduler = QueueScheduler::new();
 
         // RISCV ISA mutator
-        let mutator = StdISAScheduledMutator::with_max_stack_pow(riscv_mutations(), 2);
+        //let mutator = StdISAScheduledMutator::with_max_stack_pow(riscv_mutations(), 2);
+        let mutator = StdISAScheduledMutator::new(riscv_mutations());
 
         // Finally, instantiate the fuzzer
         let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
@@ -315,7 +318,8 @@ pub fn fuzz() {
         
         // Instantiate a mutational stage that will apply mutations to the selected testcase
         let sync_dir = PathBuf::from(sync_dir.to_string());
-        let mut stages = tuple_list!(SyncFromDiskStage::new(sync_dir), StdMutationalStage::with_max_iterations(mutator, 1));
+        //let mut stages = tuple_list!(SyncFromDiskStage::new(sync_dir), StdMutationalStage::with_max_iterations(mutator, 1));
+        let mut stages = tuple_list!(SyncFromDiskStage::new(sync_dir), StdMutationalStage::new(mutator));
 
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)
             .expect("Error in fuzzing loop");
