@@ -7,12 +7,15 @@ use std::env;
 
 fn main() {
 
-    if Ok("runner".to_owned()) == env::var("PROFILE") {
+    println!("Compiling using profile {:?}. Please condiser using test profile to fake LibNPI.so", env::var("PROFILE"));
+
+    if env::var("PRESIFUZZ_DUMMY").is_ok() {
         cc::Build::new()
             .cpp(true) // Switch to C++ library compilation.
             .file("./src/npi_c.c")
             .flag("-DDUMMY_LIB")
             .compile("npi_c");
+
     } else {
         let key = "VERDI_HOME";
         let mut verdi_lib = match env::var(key) {
@@ -41,14 +44,15 @@ fn main() {
             .include(npi_library_path)
             .compile("npi_c");
         println!("cargo:rustc-link-lib=NPI");
+
+
+        let key = "VERDI_HOME";
+        let verdi_home = match env::var(key) {
+            Ok(val) => val,
+            Err(_e) => "".to_string(),
+        };
+
+        println!("cargo:rustc-link-search=native={}/share/NPI/lib/linux64", verdi_home);
     }
-
-    let key = "VERDI_HOME";
-    let verdi_home = match env::var(key) {
-        Ok(val) => val,
-        Err(_e) => "".to_string(),
-    };
-
-    println!("cargo:rustc-link-search=native={}/share/NPI/lib/linux64", verdi_home);
 }
 

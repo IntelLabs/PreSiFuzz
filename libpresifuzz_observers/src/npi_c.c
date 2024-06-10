@@ -28,6 +28,7 @@ typedef void* npiCovHandle;
 #include <unistd.h>
 #include <sys/types.h>
 #include <string>
+#include <ctime>
 
 #include "stdint.h"
 
