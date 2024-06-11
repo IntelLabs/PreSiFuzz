@@ -20,3 +20,10 @@ Cargo.lock
 build/
 fusesoc*
 output
+
+chipyard
+build.err
+build.log
+
+# Mac files
+.DS_Store
