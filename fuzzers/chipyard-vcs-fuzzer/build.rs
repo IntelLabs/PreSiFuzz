@@ -16,18 +16,6 @@ fn main() {
     }
     assert!(fs::create_dir("./build").is_ok());
 
-    // Check if conda is installed
-    if is_conda_installed() {
-        println!("conda is installed, proceeding with installation of conda-libmamba-solver, conda-lock.");
-
-        run_command("conda", &["install", "-n", "base", "conda-libmamba-solver"]);
-        run_command("conda", &["config", "--set", "solver", "libmamba"]);
-        run_command("conda", &["install", "-n", "base", "conda-lock==1.4.0"]);
-        run_command("conda", &["activate", "base"]);
-    } else {
-        println!("conda is not installed but not required.");
-    }
-
     // Check if chipyard directory exists
     if !Path::new("chipyard").exists() {
         println!("chipyard is not present in the current directory. Downloading..");
