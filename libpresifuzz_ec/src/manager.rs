@@ -370,6 +370,7 @@ where
                 // Write the serialized binary data to a file
                 let event_filename = format!("{}/client_{}_{}.event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
                 
+                #[cfg(feature = "debug")]
                 println!("sync on dir: {}", self.sync_dir);
                 
                 let mut file = File::create(event_filename).expect("Failed to persist event on systemfile");
@@ -393,6 +394,7 @@ where
                 let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                 let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
 
+                #[cfg(feature = "debug")]
                 println!("sync on dir: {}", self.sync_dir);
     
                 if !Path::new(&new_filename).is_file() {
@@ -453,6 +455,7 @@ where
                 // Write the serialized binary data to a file
                 let event_filename = format!("{}/client_{}_{}.event.presifuzz_lock", self.sync_dir, &self.client_id, self.count);
 
+                #[cfg(feature = "debug")]
                 println!("sync on dir: {}", self.sync_dir);
 
                 let mut file = File::create(event_filename).expect("Failed to persist event on systemfile");
@@ -476,6 +479,7 @@ where
                 let new_filename = format!("{}/client_{}.event.stats", self.sync_dir, &self.client_id);
                 let event_filename = format!("{}/client_{}.stats_event.presifuzz_lock", self.sync_dir, &self.client_id);
 
+                #[cfg(feature = "debug")]
                 println!("sync on dir: {}", self.sync_dir);
     
                 if !Path::new(&new_filename).is_file() {

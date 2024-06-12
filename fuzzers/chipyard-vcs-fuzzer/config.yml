@@ -1,0 +1,12 @@
+fuzzer:
+  max_testcase_size: 128
+simv:
+  vcs_args:
+  plus_args:
+  cov_enable: true
+  coverage_metrics: "line+fsm+cond+tgl+branch"
+  coverage_directory: "Coverage.vdb"
+  reset_coverage_before_use: false
+  system_timeout_s: 180
+  vcs_timeout: "10us"
+  multi_seed: 0

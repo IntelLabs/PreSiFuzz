@@ -1,0 +1,22 @@
+diff --git a/sims/vcs/Makefile b/sims/vcs/Makefile
+index 8517fc1d..dc4c4e7c 100644
+--- a/sims/vcs/Makefile
++++ b/sims/vcs/Makefile
+@@ -54,7 +54,7 @@ include $(base_dir)/common.mk
+ #########################################################################################
+ # vcs binary and arguments
+ #########################################################################################
+-VCS = vcs -full64
++VCS = vcs -full64 -LDFLAGS -Wl,--no-as-needed
+ 
+ VCS_OPTS = $(VCS_CC_OPTS) $(VCS_NONCC_OPTS) $(SIM_PREPROC_DEFINES) $(VCS_PREPROC_DEFINES)
+ 
+@@ -69,7 +69,7 @@ model_dir_debug = $(build_dir)/$(long_name).debug
+ #########################################################################################
+ $(sim): $(sim_common_files) $(dramsim_lib) $(EXTRA_SIM_REQS)
+ 	rm -rf $(model_dir)
+-	$(VCS) $(VCS_OPTS) $(EXTRA_SIM_SOURCES) -o $@ -Mdir=$(model_dir)
++	$(VCS) $(VCS_OPTS) $(EXTRA_SIM_SOURCES) -o $@ -Mdir=$(model_dir) -lca -cm line+cond+fsm+tgl+path+branch+assert -cm_dir Coverage.vdb
+ 
+ $(sim_debug): $(sim_common_files) $(dramsim_lib) $(EXTRA_SIM_REQS)
+ 	rm -rf $(model_dir_debug)
