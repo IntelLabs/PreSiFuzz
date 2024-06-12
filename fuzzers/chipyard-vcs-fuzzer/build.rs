@@ -26,6 +26,7 @@ fn main() {
 
     // Change directory to chipyard
     std::env::set_current_dir("chipyard").expect("Failed to change directory to chipyard");
+    let chipyard_root = format!("{}", env::current_dir().unwrap().display());
 
     // Execute build-setup.sh
     run_command("./build-setup.sh", &["--skip-marshal", "--skip-firesim", "--skip-toolchain", "--skip-conda", "riscv-tools"]);
@@ -43,16 +44,12 @@ fn main() {
     run_command("make", &["-j", "12"]);
 
     // Build the testcase
+    std::env::set_current_dir(chipyard_root).expect("Failed to change directory to chipyard");
     build_testcase();
 
     println!("INFO: Creating build dir.");
 
-    assert!(Command::new("bash")
-                .arg("-c")
-                .arg("cp -r ./chipyard/sims/vcs/* ./build")
-                .status()
-                .unwrap()
-                .success());
+    run_command("bash", &["-c", "cp -r ./sims/vcs/* ../build"]);
 
     let key = "VERDI_HOME";
     let mut verdi_lib = match env::var(key) {
@@ -145,7 +142,7 @@ fn build_testcase() {
             "-nostartfiles",
             "-lm",
             "-lgcc",
-            "-T", "../src/test.ld"
+            "-T", "../src/testcase.ld"
         ])
         .status()
         .expect("Failed to build testcase");
