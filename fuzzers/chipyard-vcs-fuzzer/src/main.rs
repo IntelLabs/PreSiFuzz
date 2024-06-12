@@ -257,7 +257,7 @@ pub fn fuzz() {
 
         // 39357 branches coverable
         // 39357 / 8 = 4919
-        // const BRANCH_MAP_SIZE: usize = 4919+8;
+        const BRANCH_MAP_SIZE: usize = 4919+8;
         let mut shmem = shmem_provider_client.new_shmem(BRANCH_MAP_SIZE).unwrap();
         let shmem_buf = shmem.as_mut_slice();
         let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
