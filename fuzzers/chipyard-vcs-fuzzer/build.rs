@@ -139,12 +139,8 @@ fn source_env_sh() {
 }
 
 fn build_testcase() {
-    let riscv_benchmarks = "./toolchains/riscv-tools/riscv-tests/benchmarks";
     let status = Command::new("riscv64-unknown-elf-gcc")
         .args(&[
-            "-I", &format!("{}/../env", riscv_benchmarks),
-            "-I", &format!("{}/common", riscv_benchmarks),
-            "-I./testcase",
             "-DPREALLOCATE=1",
             "-mcmodel=medany",
             "-static",
@@ -155,14 +151,13 @@ fn build_testcase() {
             "-fno-builtin-printf",
             "-fno-tree-loop-distribute-patterns",
             "-o", "../build/iram.elf",
-            &format!("{}/common/crt.S", riscv_benchmarks),
             "../src/testcase.S",
             "-static",
             "-nostdlib",
             "-nostartfiles",
             "-lm",
             "-lgcc",
-            "-T", &format!("{}/common/test.ld", riscv_benchmarks),
+            "-T", "../src/test.ld"
         ])
         .status()
         .expect("Failed to build testcase");

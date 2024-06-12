@@ -10,12 +10,12 @@
 #*****************************************************************************
 # custom_test_template.S
 #-----------------------------------------------------------------------------
-#          
+#
 DRAM_START:
   .word 0x90000000
 
-  .globl main
-main:
+  .globl _start
+_start:
   la  t0, exception_entry
   csrw    mtvec,t0
   la      t4, DRAM_START
