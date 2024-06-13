@@ -79,7 +79,7 @@ impl VerdiXMLMapObserver
             vdb: vdb.to_string()
         }
     }
-    
+  
     /// Gets cnt as usize
     #[must_use]
     pub fn cnt(&self) -> usize {
@@ -268,16 +268,8 @@ where
                 _ => (), // Ignore other events
             }
         }
-
-        // while coverage_map.len() > 32  {
-        //     let new_cov_map = coverage_map.split_off(32);
-        //     self.map.push(u32::from_str_radix(&coverage_map, 2).unwrap());
-        //     coverage_map = new_cov_map;
-            
-        // };
         // For last piece
         self.map.push(u32::from_str_radix(&coverage_map, 2).unwrap());
-        // println!("{:?}", self.map);
         Ok(())
     }
 }
@@ -367,7 +359,7 @@ mod tests {
 
         let mut feedback = ConstFeedback::new(true);
         let mut objective = ConstFeedback::new(false);
-        
+
 
         let mut verdi_observer = VerdiXMLMapObserver::new(
                 "verdi_map",
