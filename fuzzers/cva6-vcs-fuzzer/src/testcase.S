@@ -11,15 +11,50 @@
 # custom_test_template.S
 #-----------------------------------------------------------------------------
 #
+DRAM_START:
+  .word 0x90000000
 
-.equ DRAM_START,            0x90000000
-
-  .globl main
-main:
+.align 2
+  .globl _start
+  .section ".text.init"
+_start:
   la  t0, exception_entry
   csrw    mtvec,t0
   la      t4, DRAM_START
   sw      x0, (t4)
+
+  la  x1, DRAM_START
+  la  x2, DRAM_START
+  la  x3, DRAM_START
+  la  x4, DRAM_START
+  la  x5, DRAM_START
+  la  x6, DRAM_START
+  la  x7, DRAM_START
+  la  x8, DRAM_START
+  la  x9, DRAM_START
+  la  x10,DRAM_START
+  la  x11,DRAM_START
+  la  x12,DRAM_START
+  la  x13,DRAM_START
+  la  x14,DRAM_START
+  la  x15,DRAM_START
+  la  x16,DRAM_START
+  la  x17,DRAM_START
+  la  x18,DRAM_START
+  la  x19,DRAM_START
+  la  x20,DRAM_START
+  la  x21,DRAM_START
+  la  x22,DRAM_START
+  la  x23,DRAM_START
+  la  x24,DRAM_START
+  la  x25,DRAM_START
+  la  x26,DRAM_START
+  la  x27,DRAM_START
+  la  x28,DRAM_START
+  la  x29,DRAM_START
+  la  x30,DRAM_START
+  la  x31,DRAM_START
+
   jal     x0, payload
 
 .align 2
@@ -83,6 +118,7 @@ end:
 
 .globl payload
 .align 4
+  .section ".text"
 payload:
 .rept 1024
   .word 0xDEADBEEF
