@@ -110,9 +110,8 @@ fn main() {
                     .arg("-c")
                     .arg("echo $CVA6_HOME_DIR && cd ./cva6/verif/sim/ && source ./setup-env.sh && python3 ./cva6.py --target cv32a60x --iss=vcs-testharness --iss_yaml=cva6.yaml \
                         --asm_tests $CVA6_HOME_DIR/../src/testcase.S \
-                        --linker=../src/testcase.ld \
-                        --gcc_opts='-static -mcmodel=medany -fvisibility=hidden -nostdlib \
-                        -nostartfiles -g -lgcc'")
+                        --linker=$CVA6_HOME_DIR/../src/testcase.ld \
+                        --gcc_opts='-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -g -lgcc'")
                     .stdout(Stdio::inherit())
                     .env("CVA6_HOME_DIR", cur_dir)
                     .status()
