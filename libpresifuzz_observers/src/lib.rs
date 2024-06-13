@@ -3,4 +3,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod verdi_observer;
+pub mod verdi_xml_observer;
 
