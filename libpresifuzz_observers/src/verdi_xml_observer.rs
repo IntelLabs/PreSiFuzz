@@ -18,13 +18,11 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 use libafl_bolts::{
-    AsIter, AsIterMut, AsMutSlice, AsSlice, HasLen, Named,
+    AsIter, AsIterMut, HasLen, Named,
 };
 
-use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{BufReader, BufRead};
 use flate2::bufread::GzDecoder;
 use quick_xml::Reader;
 use quick_xml::events::Event;
@@ -33,7 +31,6 @@ extern crate fs_extra;
 use std::{
     str,
     hash::Hasher,
-    ffi::{CString},
 };
 use ahash::AHasher;
 
@@ -222,6 +219,7 @@ where
         };
 
         let xml_file = format!("./{}/snps/coverage/db/testdata/test/{}", self.vdb, xml_file);
+        let xml_file_ = xml_file.clone();
 
         // Open the gzip-compressed file
         let mut coverage_file = File::open(xml_file).expect("Unable to open file xml coverage file");
@@ -237,39 +235,71 @@ where
         let mut xml_reader = Reader::from_str(&xml_str);
         xml_reader.config_mut().trim_text(true);
 
+        let mut concatenated_bits = String::new();
+
         // Variables to hold the XML event state
-        let mut coverage_map = String::new();
         // Iterate over the XML events
         loop {
             match xml_reader.read_event() {
                 Ok(Event::Start(ref e)) if e.name() == quick_xml::name::QName(b"instance_data") => {
-                    for attr in e.attributes() {
+                    'attr_loop: for attr in e.attributes() {
                         match attr {
                             Ok(attr) => {
+                                // stop if filter does not match
                                 if attr.key == quick_xml::name::QName(b"name") && ! attr.unescape_value().unwrap().contains(self.filter.as_str()) {
-                                    break;
+                                    
+                                    break 'attr_loop;
+                                
                                 } else if attr.key == quick_xml::name::QName(b"value") {
+                                    
                                     let tmp_str = &attr.unescape_value().unwrap();
-                                    coverage_map.push_str(tmp_str);
-                                    while coverage_map.len() > 32  {
-                                        let new_cov_map = coverage_map.split_off(32);
-                                        self.map.push(u32::from_str_radix(&coverage_map, 2).unwrap());
-                                        coverage_map = new_cov_map.clone();
-                                        
-                                    };
+                                    println!("item of {} bits: {:?}", tmp_str.len(), tmp_str);
+                                    
+                                    concatenated_bits.push_str(tmp_str);
                                 }
+
                             }
                             Err(_) => (),
                         }
                     }
                 }
                 Ok(Event::Eof) => break, // Exit the loop when reaching the end of file
-                Err(e) => panic!("Error at position {}: {:?}", xml_reader.buffer_position(), e),
+                Err(e) => panic!("Error while parsing vdb xml files {}  at position {}: {:?}", xml_file_, xml_reader.buffer_position(), e),
                 _ => (), // Ignore other events
             }
         }
-        // For last piece
-        self.map.push(u32::from_str_radix(&coverage_map, 2).unwrap());
+
+        // we saved the bitmap in str format into concatenated_bits
+        // This consumes a bit of memory, but then it is easier to translate the String into a
+        // concatenated chain of bit: bitmap.
+
+        let bit_len = concatenated_bits.len();
+        let mut start = 0;
+
+        while start < bit_len {
+            
+            // process 32bits chunks at max
+            let end = (start + 32).min(bit_len);
+            let bit_chunk = &concatenated_bits[start..end];
+
+            // translates str to u32 with radix 2
+            let value = u32::from_str_radix(bit_chunk, 2).unwrap();
+
+            // Normally, only last chunk might be not 32bits aligned so we add padding with 0
+            let value = if end - start < 32 {
+                value << (32 - (end - start))
+            } else {
+                value
+            };
+
+            self.map.push(value);
+            start += 32;
+        }
+
+        for value in &self.map {
+            println!("{:032b}", value); // Print the binary representation of each u32 value
+        }
+
         Ok(())
     }
 }
