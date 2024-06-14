@@ -23,6 +23,7 @@ use libafl_bolts::{
 
 use std::env;
 use std::fs::File;
+use std::io::prelude::*;
 use std::io::{BufReader, BufRead};
 use flate2::bufread::GzDecoder;
 use quick_xml::Reader;
@@ -78,7 +79,7 @@ impl VerdiXMLMapObserver
             vdb: vdb.to_string()
         }
     }
-
+  
     /// Gets cnt as usize
     #[must_use]
     pub fn cnt(&self) -> usize {
@@ -210,12 +211,6 @@ where
         _exit_kind: &ExitKind,
     ) -> Result<(), Error> {
 
-        let pmap = self.map.as_slice();
-
-        let pmap = pmap.as_ptr();
-
-        let filter = CString::new(self.filter.as_str()).expect("CString::new failed");
-
         // Path to the gzip-compressed XML file
         let xml_file = match self.metric {
             VerdiCoverageMetric::Toggle => "tgl.verilog.data.xml",
@@ -229,54 +224,52 @@ where
         let xml_file = format!("./{}/snps/coverage/db/testdata/test/{}", self.vdb, xml_file);
 
         // Open the gzip-compressed file
-        let file = File::open(xml_file).expect("Unable to open file xml coverage file");
-        let buf_reader = BufReader::new(file);
-        let gz_decoder = GzDecoder::new(buf_reader);
-        let mut reader = BufReader::new(gz_decoder);
+        let mut coverage_file = File::open(xml_file).expect("Unable to open file xml coverage file");
+        
+        let mut buffer = Vec::new();
+        coverage_file.read_to_end(&mut buffer).expect("Unable to read the file tail the end");
+
+        let mut gz = GzDecoder::new(&buffer[..]);
+        let mut xml_str = String::new();
+        gz.read_to_string(&mut xml_str).expect("Unable to unzip using GzDecoder");
 
         // Create an XML reader
-        let mut xml_reader = Reader::from_reader(reader);
-        xml_reader.trim_text(true);
+        let mut xml_reader = Reader::from_str(&xml_str);
+        xml_reader.config_mut().trim_text(true);
 
         // Variables to hold the XML event state
-        let mut buf = Vec::new();
-        let mut in_instance_data = false;
-        let mut name = String::new();
-        let mut value = String::new();
-
+        let mut coverage_map = String::new();
         // Iterate over the XML events
         loop {
-            match xml_reader.read_event(&mut buf) {
-                Ok(Event::Start(ref e)) if e.name() == b"instance_data" => {
-                    in_instance_data = true;
+            match xml_reader.read_event() {
+                Ok(Event::Start(ref e)) if e.name() == quick_xml::name::QName(b"instance_data") => {
                     for attr in e.attributes() {
                         match attr {
                             Ok(attr) => {
-                                if attr.key == b"name" {
-                                    name = attr.unescape_and_decode_value(&xml_reader).unwrap();
-                                } else if attr.key == b"value" {
-                                    value = attr.unescape_and_decode_value(&xml_reader).unwrap();
+                                if attr.key == quick_xml::name::QName(b"name") && ! attr.unescape_value().unwrap().contains(self.filter.as_str()) {
+                                    break;
+                                } else if attr.key == quick_xml::name::QName(b"value") {
+                                    let tmp_str = &attr.unescape_value().unwrap();
+                                    coverage_map.push_str(tmp_str);
+                                    while coverage_map.len() > 32  {
+                                        let new_cov_map = coverage_map.split_off(32);
+                                        self.map.push(u32::from_str_radix(&coverage_map, 2).unwrap());
+                                        coverage_map = new_cov_map.clone();
+                                        
+                                    };
                                 }
                             }
                             Err(_) => (),
                         }
                     }
                 }
-                Ok(Event::End(ref e)) if e.name() == b"instance_data" => {
-                    if in_instance_data {
-                        println!("{} = {}", name, value);
-                        in_instance_data = false;
-                        name.clear();
-                        value.clear();
-                    }
-                }
                 Ok(Event::Eof) => break, // Exit the loop when reaching the end of file
                 Err(e) => panic!("Error at position {}: {:?}", xml_reader.buffer_position(), e),
                 _ => (), // Ignore other events
             }
-            buf.clear(); // Clear the buffer to prepare for the next event
         }
-
+        // For last piece
+        self.map.push(u32::from_str_radix(&coverage_map, 2).unwrap());
         Ok(())
     }
 }
@@ -367,12 +360,13 @@ mod tests {
         let mut feedback = ConstFeedback::new(true);
         let mut objective = ConstFeedback::new(false);
 
+
         let mut verdi_observer = VerdiXMLMapObserver::new(
                 "verdi_map",
                 &String::from("test.vdb"),
                 "",
                 VerdiCoverageMetric::Toggle,
-                &"tb".to_string()
+                &"chiptop0".to_string()
         );
 
         let mut state = StdState::new(
@@ -384,8 +378,6 @@ mod tests {
         )
         .unwrap();
         state.set_max_size(1024);
-
-        let workdir = format!("{}/../test_data", env::current_dir().unwrap().display());
 
         verdi_observer.post_exec(&mut state, &input, &ExitKind::Ok);
     }
