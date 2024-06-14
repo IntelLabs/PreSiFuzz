@@ -369,7 +369,6 @@ mod tests {
     use crate::verdi_xml_observer::VerdiXMLMapObserver;
     use crate::verdi_xml_observer::VerdiCoverageMetric;
     use libafl::prelude::StdState;
-    use libafl::corpus::Corpus;
     use libafl::state::HasMaxSize;
     use libafl::observers::Observer;
 
