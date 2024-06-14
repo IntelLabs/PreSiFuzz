@@ -71,7 +71,7 @@ impl VerdiXMLMapObserver
             name: name.to_string(),
             map: Vec::<u32>::new(),
             workdir: workdir.to_string(),
-            metric: metric,
+            metric,
             filter: filter.to_string(),
             vdb: vdb.to_string()
         }
@@ -259,7 +259,7 @@ where
                                 }
 
                             }
-                            Err(_) => (),
+                            Err(_) => {continue;},
                         }
                     }
                 }
@@ -356,11 +356,6 @@ where
 mod tests {
 
     extern crate fs_extra;
-    use std::{
-        str,
-        hash::Hasher,
-        ffi::{CString},
-    };
     use libc::{c_uint, c_char, c_void};
     use nix::{sys::wait::waitpid,unistd::{fork, ForkResult}};
     use std::process;
@@ -377,7 +372,6 @@ mod tests {
     use libafl::corpus::Corpus;
     use libafl::state::HasMaxSize;
     use libafl::observers::Observer;
-    use std::env;
 
     #[test]
     fn test_verdi_xml_observer() {
@@ -385,7 +379,7 @@ mod tests {
         let input = BytesInput::new(vec![1, 2, 3, 4]);
 
         let rand = StdRand::with_seed(current_time().as_nanos() as u64);
-        let mut corpus = InMemoryCorpus::<BytesInput>::new();
+        let corpus = InMemoryCorpus::<BytesInput>::new();
 
         let mut feedback = ConstFeedback::new(true);
         let mut objective = ConstFeedback::new(false);
@@ -409,7 +403,7 @@ mod tests {
         .unwrap();
         state.set_max_size(1024);
 
-        verdi_observer.post_exec(&mut state, &input, &ExitKind::Ok);
+        let _ = verdi_observer.post_exec(&mut state, &input, &ExitKind::Ok);
     }
 }
 
