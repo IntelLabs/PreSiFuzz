@@ -93,32 +93,6 @@ impl<'a> CommandConfigurator for SimvCommandConfigurator<'a> {
         #[cfg(feature = "debug")]
         cprintln!("<green>[INFO]</green> Running simv with seed {} ...", self.seed);
 
-        if self.reset_coverage_before_use {
-
-            // Clean existing vdb
-            assert!(Command::new("rm")
-                .arg("-rf")
-                .arg("./Coverage.vdb")
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .unwrap()
-                .success());
-
-            // Copy virgin vdb
-            assert!(Command::new("cp")
-                .arg("-r")
-                .arg("./Virgin_coverage.vdb")
-                .arg("./Coverage.vdb")
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .unwrap()
-                .success());
-        }
-
         // Simv Command Executor prepares simv inputs and start simv with proper arguments
         // 1. Generate testcase in expected format
         self.generate_testcase(input);
