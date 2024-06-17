@@ -24,8 +24,6 @@ use libafl_bolts::{
 use std::fs::File;
 use std::io::prelude::*;
 use flate2::bufread::GzDecoder;
-use quick_xml::Reader;
-use quick_xml::events::Event;
 
 extern crate fs_extra;
 use std::{
@@ -33,6 +31,7 @@ use std::{
     hash::Hasher,
 };
 use ahash::AHasher;
+use std::io::Cursor;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub enum VerdiCoverageMetric {
@@ -192,11 +191,12 @@ where
     S: UsesInput,
 {
     fn pre_exec(&mut self, _state: &mut S, _input: &S::Input) -> Result<(), Error> {
-        let initial = self.initial(); 
-        let map = self.map.as_mut_slice();
-        for x in map.iter_mut() {
-            *x = initial;
-        }
+        //let initial = self.initial(); 
+        self.map.clear();
+        //let map = self.map.as_mut_slice();
+        //for x in map.iter_mut() {
+        //    *x = initial;
+        //}
         Ok(())
     }
 
@@ -218,54 +218,48 @@ where
             VerdiCoverageMetric::Assert => "assert.verilog.data.xml",
         };
 
-        let xml_file = format!("./{}/snps/coverage/db/testdata/test/{}", self.vdb, xml_file);
+        let xml_file = format!("{}/{}/snps/coverage/db/testdata/test/{}", self.workdir, self.vdb, xml_file);
         let xml_file_ = xml_file.clone();
 
         // Open the gzip-compressed file
         let mut coverage_file = File::open(xml_file).expect("Unable to open file xml coverage file");
         
         let mut buffer = Vec::new();
-        coverage_file.read_to_end(&mut buffer).expect("Unable to read the file tail the end");
+        coverage_file.read_to_end(&mut buffer).expect("Unable to read the xml cov file tail the end");
 
         let mut gz = GzDecoder::new(&buffer[..]);
         let mut xml_str = String::new();
-        gz.read_to_string(&mut xml_str).expect("Unable to unzip using GzDecoder");
-
-        // Create an XML reader
-        let mut xml_reader = Reader::from_str(&xml_str);
-        xml_reader.config_mut().trim_text(true);
+        gz.read_to_string(&mut xml_str).expect("Unable to unzip xml cove file using GzDecoder");
 
         let mut concatenated_bits = String::new();
 
-        // Variables to hold the XML event state
-        // Iterate over the XML events
-        loop {
-            match xml_reader.read_event() {
-                Ok(Event::Start(ref e)) if e.name() == quick_xml::name::QName(b"instance_data") => {
-                    'attr_loop: for attr in e.attributes() {
-                        match attr {
-                            Ok(attr) => {
-                                // stop if filter does not match
-                                if attr.key == quick_xml::name::QName(b"name") && ! attr.unescape_value().unwrap().contains(self.filter.as_str()) {
-                                    
-                                    break 'attr_loop;
-                                
-                                } else if attr.key == quick_xml::name::QName(b"value") {
-                                    
-                                    let tmp_str = &attr.unescape_value().unwrap();
-                                    println!("item of {} bits: {:?}", tmp_str.len(), tmp_str);
-                                    
-                                    concatenated_bits.push_str(tmp_str);
-                                }
+        let mut coverable: u32 = 0;
+        let mut covered: u32 = 0;
 
+        let cursor = Cursor::new(xml_str);
+
+        for line in cursor.lines() {
+            if let Ok(line) = line {
+                if line.trim_start().starts_with("<instance_data") {
+                    // Find the start and end of the name attribute
+                    if let Some(name_start) = line.find(r#"name=""#) {
+                        let name_start = name_start + r#"name=""#.len();
+                        if let Some(name_end) = line[name_start..].find('"') {
+                            let name = &line[name_start..name_start + name_end];
+                    
+                            // Find the start and end of the value attribute
+                            if let Some(value_start) = line.find(r#"value=""#) {
+                                let value_start = value_start + r#"value=""#.len();
+                                if let Some(value_end) = line[value_start..].find('"') {
+                                    let value = &line[value_start..value_start + value_end];
+                                    coverable += value.len() as u32;
+
+                                    concatenated_bits.push_str(value);
+                                }
                             }
-                            Err(_) => {continue;},
                         }
                     }
                 }
-                Ok(Event::Eof) => break, // Exit the loop when reaching the end of file
-                Err(e) => panic!("Error while parsing vdb xml files {}  at position {}: {:?}", xml_file_, xml_reader.buffer_position(), e),
-                _ => (), // Ignore other events
             }
         }
 
@@ -275,6 +269,8 @@ where
 
         let bit_len = concatenated_bits.len();
         let mut start = 0;
+
+        self.map.push(coverable);
 
         while start < bit_len {
             
@@ -292,13 +288,12 @@ where
                 value
             };
 
+            covered += value.count_ones();
+
             self.map.push(value);
             start += 32;
         }
-
-        for value in &self.map {
-            println!("{:032b}", value); // Print the binary representation of each u32 value
-        }
+        self.map.insert(0, covered);
 
         Ok(())
     }
@@ -387,7 +382,7 @@ mod tests {
         let mut verdi_observer = VerdiXMLMapObserver::new(
                 "verdi_map",
                 &String::from("test.vdb"),
-                "",
+                ".",
                 VerdiCoverageMetric::Toggle,
                 &"chiptop0".to_string()
         );
