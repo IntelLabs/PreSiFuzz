@@ -70,10 +70,12 @@ use std::rc::Rc;
 use clap::{App, Arg};
 use clap::AppSettings;
 
-use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
+//use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
 
-use libpresifuzz_observers::verdi_observer::VerdiShMapObserver;
-use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
+use libpresifuzz_observers::verdi_xml_observer::VerdiXMLMapObserver;
+use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric::*;
+use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric;
+use libpresifuzz_feedbacks::verdi_xml_feedback::VerdiFeedback;
 
 pub mod simv;
 use crate::simv::SimvCommandConfigurator;
@@ -88,6 +90,8 @@ use libpresifuzz_feedbacks::transferred::TransferredFeedback;
 
 mod differential_feedback;
 mod differential;
+//mod verdi_feedback;
+//use crate::verdi_feedback::VerdiFeedback;
 
 #[derive(Debug)]
 pub struct WorkDir(Option<TempDir>);
@@ -135,6 +139,35 @@ pub fn main() {
     fuzz();
 }
 
+macro_rules! create_verdi_observer_and_feedback {
+    ($fdb:ident, $obs:ident, $metric:ident, $minimized:expr, $workdir:ident) => {
+        let ($obs, $fdb) = {
+            let verdi_observer = VerdiXMLMapObserver::new(
+                    concat!("verdi_", stringify!($metric)),
+                    &"Coverage.vdb".to_string(),
+                    &$workdir.to_string(),
+                    match $metric {
+                       Toggle => VerdiCoverageMetric::Toggle,
+                       Branch => VerdiCoverageMetric::Branch,
+                       Line => VerdiCoverageMetric::Line,
+                       Condition => VerdiCoverageMetric::Condition,
+                       FSM => VerdiCoverageMetric::FSM,
+                       _ => VerdiCoverageMetric::Toggle, 
+                    },    
+                    &"".to_string()
+                    //&"ariane_tb.dut.i_ariane".to_string()
+                );
+
+            let feedback = VerdiFeedback::new_with_observer(
+                concat!("verdi_", stringify!($metric)),
+                &$workdir.to_string(),
+                $minimized
+            );
+            (feedback, verdi_observer)
+        };
+    };
+}
+
 pub fn fuzz() {
 
     let yaml_fd = std::fs::File::open("config.yml").unwrap();
@@ -172,115 +205,12 @@ pub fn fuzz() {
            
         std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
 
-        // allocate a shared memory for coverage map
-        
-        // create verdi observer and feedback
-        // monitor Toogle coverage 
-        // apply filter if needed 
-        // 964646 coverable tgl signals
-        // map encoding is 1bit per signal
-        // 964646/8
-        const TGL_MAP_SIZE: usize = 120581+8;
-        let mut shmem = shmem_provider_client.new_shmem(TGL_MAP_SIZE).unwrap();
-        let shmem_buf = shmem.as_mut_slice();
-        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
-        let (verdi_feedback_tgl, verdi_observer_tgl) = {
-            let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ TGL_MAP_SIZE / 4 }>::from_mut_ptr(
-                    "verdi_tgl",
-                    workdir,
-                    shmem_ptr,
-                    &VerdiCoverageMetric::Toggle,
-                    &"ariane_tb.dut.i_ariane".to_string()
-                )
-            };
+        create_verdi_observer_and_feedback!(verdi_observer_condition, verdi_feedback_condition, Condition, true, workdir);
+        create_verdi_observer_and_feedback!(verdi_observer_line, verdi_feedback_line, Line, false, workdir);
+        create_verdi_observer_and_feedback!(verdi_observer_branch, verdi_feedback_branch, Branch, false, workdir);
+        create_verdi_observer_and_feedback!(verdi_observer_tgl, verdi_feedback_tgl, Toggle, false, workdir);
 
-            let feedback = VerdiFeedback::<{TGL_MAP_SIZE/4}>::new_with_observer("verdi_tgl", TGL_MAP_SIZE, workdir);
-
-            (feedback, verdi_observer)
-        };
-
-        // FSM seems buggy, disable
-        //const FSM_MAP_SIZE: usize = (??.0/8.0).ceil() as usize;
-        //let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
-        //let shmem_buf = shmem.as_mut_slice();
-        //let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
-        //let (verdi_feedback_fsm, verdi_observer_fsm) = {
-        //    let verdi_observer = unsafe {
-        //        VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
-        //            "verdi_fsm",
-        //            workdir,
-        //            shmem_ptr,
-        //            &VerdiCoverageMetric::FSM,
-        //            &"ariane_tb.dut.i_ariane".to_string()
-        //        )
-        //    };
-
-        //    let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_fsm", MAP_SIZE, workdir);
-
-        //    (feedback, verdi_observer)
-        //};
-
-        // 24889 cond coverable
-        const COND_MAP_SIZE: usize = 3112+8;
-        let mut shmem = shmem_provider_client.new_shmem(COND_MAP_SIZE).unwrap();
-        let shmem_buf = shmem.as_mut_slice();
-        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
-        let (verdi_feedback_condition, verdi_observer_condition) = {
-            let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ COND_MAP_SIZE / 4 }>::from_mut_ptr(
-                    "verdi_condition",
-                    workdir,
-                    shmem_ptr,
-                    &VerdiCoverageMetric::Condition,
-                    &"ariane_tb.dut.i_ariane".to_string()
-                )
-            };
-
-            let feedback = VerdiFeedback::<{COND_MAP_SIZE/4}>::new_with_observer("verdi_condition", COND_MAP_SIZE, workdir);
-            (feedback, verdi_observer)
-        };
-
-        // 17599 coverable lines
-        const LINE_MAP_SIZE: usize = 2200+8;
-        let mut shmem = shmem_provider_client.new_shmem(LINE_MAP_SIZE).unwrap();
-        let shmem_buf = shmem.as_mut_slice();
-        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
-        let (verdi_feedback_line, verdi_observer_line) = {
-            let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ LINE_MAP_SIZE / 4 }>::from_mut_ptr(
-                    "verdi_line",
-                    workdir,
-                    shmem_ptr,
-                    &VerdiCoverageMetric::Line,
-                    &"ariane_tb.dut.i_ariane".to_string()
-                )
-            };
-
-            let feedback = VerdiFeedback::<{LINE_MAP_SIZE/4}>::new_with_observer("verdi_line", LINE_MAP_SIZE, workdir);
-            (feedback, verdi_observer)
-        };
-
-        // 12349 branches coverable
-        const BRANCH_MAP_SIZE: usize = 1544+8;
-        let mut shmem = shmem_provider_client.new_shmem(BRANCH_MAP_SIZE).unwrap();
-        let shmem_buf = shmem.as_mut_slice();
-        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
-        let (verdi_feedback_branch, verdi_observer_branch) = {
-            let verdi_observer = unsafe {
-                VerdiShMapObserver::<{ BRANCH_MAP_SIZE / 4 }>::from_mut_ptr(
-                    "verdi_branch",
-                    workdir,
-                    shmem_ptr,
-                    &VerdiCoverageMetric::Branch,
-                    &"ariane_tb.dut.i_ariane".to_string()
-                )
-            };
-            let feedback = VerdiFeedback::<{BRANCH_MAP_SIZE/4}>::new_with_observer("verdi_branch", BRANCH_MAP_SIZE, workdir);
-            (feedback, verdi_observer)
-        };
-
-        let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_tgl, verdi_feedback_branch, verdi_feedback_condition);
+        let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_branch, verdi_feedback_condition, verdi_feedback_tgl);
         //verdi_feedback_fsm,
         //let mut objective = feedback_not!(TransferredFeedback);
         let mut objective = ();
