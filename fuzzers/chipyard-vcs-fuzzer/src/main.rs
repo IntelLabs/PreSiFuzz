@@ -63,12 +63,19 @@ use std::env;
 use std::rc::Rc;
 
 use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
+use libpresifuzz_feedbacks::differential_feedback::DifferentialFeedback;
+
 
 use libpresifuzz_observers::verdi_observer::VerdiShMapObserver;
 use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
+use libpresifuzz_observers::trace_observer::ExecTrace;
+use libpresifuzz_observers::trace_observer::SpikeExecTrace;
 
 pub mod simv;
 use crate::simv::SimvCommandConfigurator;
+
+pub mod trace_observer;
+use crate::trace_observer::{RocketExecTrace, BoomExecTrace, CVA6ExecTrace};
 
 use libpresifuzz_mutators::riscv_isa::riscv_mutations;
 use libpresifuzz_mutators::scheduled::StdISAScheduledMutator;
@@ -76,9 +83,6 @@ use libpresifuzz_mutators::scheduled::StdISAScheduledMutator;
 use libpresifuzz_ec::llmp::Launcher;
 use libpresifuzz_stages::sync::SyncFromDiskStage;
 use libpresifuzz_feedbacks::transferred::TransferredFeedback;
-
-mod differential_feedback;
-mod differential;
 
 #[derive(Debug)]
 pub struct WorkDir(Option<TempDir>);
@@ -192,27 +196,6 @@ pub fn fuzz() {
             (feedback, verdi_observer)
         };
 
-        // FSM seems buggy, disable
-        //const FSM_MAP_SIZE: usize = (??.0/8.0).ceil() as usize;
-        // let mut shmem = shmem_provider_client.new_shmem(MAP_SIZE).unwrap();
-        // let shmem_buf = shmem.as_mut_slice();
-        // let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
-        // let (verdi_feedback_fsm, verdi_observer_fsm) = {
-        //    let verdi_observer = unsafe {
-        //        VerdiShMapObserver::<{ MAP_SIZE / 4 }>::from_mut_ptr(
-        //            "verdi_fsm",
-        //            workdir,
-        //            shmem_ptr,
-        //            &VerdiCoverageMetric::FSM,
-        //            &"TestDriver.testHarness.chiptop0".to_string()
-        //        )
-        //    };
-
-        //    let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_fsm", MAP_SIZE, workdir);
-
-        //    (feedback, verdi_observer)
-        // };
-
         // 79757 cond coverable
         // 79757/8=9969
         const COND_MAP_SIZE: usize = 9969+8;
@@ -275,7 +258,11 @@ pub fn fuzz() {
             (feedback, verdi_observer)
         };
         
-        let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_tgl, verdi_feedback_branch, verdi_feedback_condition);
+        let spike_trace_observer  = ExecTrace::<SpikeExecTrace>::new("spike_trace", workdir);
+        let rocket_trace_observer = ExecTrace::<RocketExecTrace>::new("rocket_trace", workdir);
+        let differential_feedback = DifferentialFeedback::<SpikeExecTrace,RocketExecTrace>::new("spike_trace", "rocket_trace");
+
+        let mut feedback = feedback_or!(verdi_feedback_line, verdi_feedback_tgl, verdi_feedback_branch, verdi_feedback_condition, differential_feedback);
         //verdi_feedback_fsm,
         let mut objective = ();
 
@@ -299,7 +286,7 @@ pub fn fuzz() {
         // Finally, instantiate the fuzzer
         let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
   
-        let mut executor = simv.into_executor(tuple_list!(verdi_observer_line, verdi_observer_tgl, verdi_observer_branch, verdi_observer_condition));
+        let mut executor = simv.into_executor(tuple_list!(verdi_observer_line, verdi_observer_tgl, verdi_observer_branch, verdi_observer_condition, spike_trace_observer, rocket_trace_observer));
         //verdi_observer_fsm,
         #[cfg(feature = "debug")]       
         println!("corpus_dir: {}", corpus_dir.to_string());

@@ -24,6 +24,7 @@ use std::assert;
 use std::path::Path;
 use std::process::{Child, Command};
 use std::os::unix::fs;
+use wait_timeout::ChildExt;
 use std::time::Duration;
 use std::env;
 use std::process::Stdio;
@@ -54,6 +55,44 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result
             std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
         }
     }
+    Ok(())
+}
+
+fn exec_spike() -> Result<(), Error> {
+    let forged_cmd_args = format!("--log-commits ./testcase.elf");
+
+    let args_vec: Vec<&str> = forged_cmd_args.split(' ').collect();
+
+    let spike_execution_log = File::create("spike.log").expect("Failed to spike.log");
+    let spike_execution_err = File::create("spike.err").expect("Failed to spike.err");
+
+    // 3. spawn simv
+    let cmd = Command::new("spike")
+                    .args(&args_vec)
+                    .stdin(Stdio::null())
+                    .stdout(spike_execution_log)
+                    .stderr(spike_execution_err)
+                    .spawn();
+
+    match cmd {
+        Ok(mut child) => {
+            let timeout = Duration::from_millis(100);
+    
+            match child.wait_timeout(timeout) {
+                Ok(Some(status)) => {
+                    #[cfg(feature = "debug")]
+                    println!("Exited with status {}", status);
+                }
+                Ok(None) => {
+                    let _ = child.kill();
+                    #[cfg(feature = "debug")]
+                    println!("timeout, process is still alive");
+                },
+                Err(e) => println!("Error waiting: {}", e),
+            }
+        }
+        Err(err) => println!("Process did not even start: {}", err),
+    };
     Ok(())
 }
 
@@ -153,6 +192,8 @@ impl<'a> CommandConfigurator for SimvCommandConfigurator<'a> {
             println!("Executing command: ./simv-chipyard.harness-RocketConfig {:?}", args_v);
         }
         
+        let exec_spike = exec_spike().expect("Runing Spike failed.");
+
         let hw_execution_log = File::create("terminal.log").expect("Failed to terminal.log");
         let hw_execution_err = File::create("terminal.err").expect("Failed to terminal.err");
 
