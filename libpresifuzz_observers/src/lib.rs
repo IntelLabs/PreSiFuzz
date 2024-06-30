@@ -4,4 +4,4 @@
 
 pub mod verdi_observer;
 pub mod verdi_xml_observer;
-
+pub mod trace_observer;

@@ -219,7 +219,6 @@ where
         };
 
         let xml_file = format!("{}/{}/snps/coverage/db/testdata/test/{}", self.workdir, self.vdb, xml_file);
-        let xml_file_ = xml_file.clone();
 
         // Open the gzip-compressed file
         let mut coverage_file = File::open(xml_file).expect("Unable to open file xml coverage file");
@@ -244,9 +243,7 @@ where
                     // Find the start and end of the name attribute
                     if let Some(name_start) = line.find(r#"name=""#) {
                         let name_start = name_start + r#"name=""#.len();
-                        if let Some(name_end) = line[name_start..].find('"') {
-                            let name = &line[name_start..name_start + name_end];
-                    
+                        if line[name_start..].find('"').is_some() {
                             // Find the start and end of the value attribute
                             if let Some(value_start) = line.find(r#"value=""#) {
                                 let value_start = value_start + r#"value=""#.len();
@@ -352,7 +349,6 @@ mod tests {
 
     extern crate fs_extra;
     use libc::{c_uint, c_char, c_void};
-    use nix::{sys::wait::waitpid,unistd::{fork, ForkResult}};
     use std::process;
     use libafl_bolts::prelude::StdRand;
     use libafl::prelude::BytesInput;

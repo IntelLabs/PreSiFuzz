@@ -38,6 +38,7 @@ clap = { version = "3.2", features = ["default"] }
 fs_extra = "1.2.0"
 wait-timeout = "0.1.5"
 color-print = "0.3.6"
+regex = "1"
 
 [features]
 debug = []

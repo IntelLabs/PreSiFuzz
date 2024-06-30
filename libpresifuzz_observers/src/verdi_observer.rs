@@ -18,7 +18,7 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 use libc::{c_uint, c_char, c_void};
-use nix::{sys::wait::waitpid,unistd::{fork, ForkResult, dup2, close}};
+use nix::{unistd::{fork, ForkResult, dup2, close}};
 use libafl_bolts::{
     ownedref::OwnedMutSlice, AsIter, AsIterMut, AsMutSlice, AsSlice, HasLen, Named,
 };
