@@ -68,6 +68,7 @@ The target directory contains examples of design to demonstrate the approach.
 # Documentation Components Overview
 
 This documentation describes the various components used in our system, including Observers, Feedback, Mutators, Schedulers, and Stages. Each component plays a critical role in the overall functioning and efficiency of the system. Below is a detailed description of each component:
+![Overview of typical execution flow for LibAFL/PreSiFuzz](./doc/overview.jpg)
 
 ## Observers
 
@@ -85,6 +86,7 @@ Feedback components analyze the extracted information from the observers and ret
 ## Mutators
 
 We have extended LibAFL mutators with RISCV-specific mutators. These mutators can delete, insert, or change opcodes and operands of instructions in a test case. Although their behavior is quite generic, the ISA definition is automatically generated using `riscv-opcodes`. This ISA layer is saved in `libpresifuzz_riscv/cpu_profile.rs`. Use the `parse.py` script to generate a new `cpu_profile` using `riscv-opcodes`.
+![Example of RISCV mutations](./doc/mutation.jpg)
 
 ## Schedulers
 
