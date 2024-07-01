@@ -53,9 +53,9 @@ where
         let core_observer = observers.match_name::<ExecTrace<C>>(&self.core_observer_name).unwrap();
 
         if core_observer.cnt() == ref_observer.cnt() {
-            Ok(false);
+            return Ok(false);
         }
-        Ok(true)
+        return Ok(true);
     }
 }
 
