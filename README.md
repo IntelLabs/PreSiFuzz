@@ -40,9 +40,8 @@ curl https://sh.rustup.rs -sSf | sh
 Then, let's clone and build this tool: 
 ```
 git clone https://github.com/IntelLabs/PreSiFuzz PreSiFuzz
-cd PreSiFuzz
 
-git submodule update --init
+cd PreSiFuzz
 
 cargo build
 ```
@@ -62,20 +61,39 @@ cargo build
 The target directory contains examples of design to demonstrate the approach.
 
 * [OpenTitan](/doc/opentitan.md)
-
-# Documentation
-
-## Libverdi
-* [LibVerdi](/doc/libverdi.md)
+* [CVA6](/fuzzers/cva6-vcs-fuzzer/README.md)
+* [Chipyard with Rocket](/fuzzers/chipyard-vcs-fuzzer/README.md)
 
 
-# Known issues
+# Documentation Components Overview
 
-## Synopsys VERDI libNPI.so memory leakage
-PreSiFuzz uses VERDI libNPI.so to analyze the vdb structure after each
-simulation pass. This structure contains the coverage map used as feedback for
-fuzzing. However, libNPI.so leaks 1MB of memory after each call. Since
-PreSiFuzz calls this library after each simulation, the leakage quickly becomes
-huge. We get in touch with Synopsys support who was very reactive, and was able
-to fix the problem quickly. If you are concerned by this bug, we advise you to
-use VERDI 2023SP1 which should be released in March 2023.
+This documentation describes the various components used in our system, including Observers, Feedback, Mutators, Schedulers, and Stages. Each component plays a critical role in the overall functioning and efficiency of the system. Below is a detailed description of each component:
+
+## Observers
+
+Observers collect information after the execution of test cases by the simulator(s) or emulator(s). The different types of observers available in `libpresifuzz_observers` include:
+
+- **`verdi_xml_observer`**: This observer extracts code coverage information from XML files produced by VCS. The generated bitmap assigns one bit per coverage point, with 0 indicating uncovered and 1 indicating covered points.
+- **`trace_observer`**: This observer parses execution trace logs from various tools, including Spike and simulated Rocket cores. The collected information can be used for additional coverage guidance or for identifying trace mismatches (see `differential_feedback`).
+
+## Feedback
+
+Feedback components analyze the extracted information from the observers and return a single boolean signal indicating whether the feedback is interesting or not. Some feedback options include:
+
+- **`verdi_xml_feedback`**: Used for coverage feedback, it tracks any code coverage metrics for VCS. You can also track `assert` coverage and use it as an objective for bug detection.
+
+## Mutators
+
+We have extended LibAFL mutators with RISCV-specific mutators. These mutators can delete, insert, or change opcodes and operands of instructions in a test case. Although their behavior is quite generic, the ISA definition is automatically generated using `riscv-opcodes`. This ISA layer is saved in `libpresifuzz_riscv/cpu_profile.rs`. Use the `parse.py` script to generate a new `cpu_profile` using `riscv-opcodes`.
+
+## Schedulers
+
+We have implemented a naive minimizer scheduler compatible with our `verdi_xml_observers`. This scheduler computes a subset of test cases from the corpus, aiming to maximize coverage.
+
+## Stages
+
+Stages are logical units executed within the fuzzer pipeline. We have extended the LibAFL SyncOnDiskStage to replace the LLMP layer with a simple system-file-based synchronization layer. Since hardware fuzzing has a relatively slow throughput, using system files to synchronize fuzzers is rarely a bottleneck. It also scales easily on servers with NFS available. Fuzzer instances save serialized information into a `sync` directory, which contains observers, test cases, and some statistical information for monitoring. Additionally, we offer a `URGStage` to merge `vdb` reports into system files during fuzzing campaigns, saving disk space over time.
+
+## Event Communication (EC) Library
+
+The EC library is a replacement for LLMP, providing an event manager to handle fired events. It simply saves new test case events into the system file and ignores other events.

@@ -118,11 +118,45 @@ end:
 
 .globl payload
 .align 4
-  .section ".text"
+//  .section ".text"
 payload:
-.rept 1024
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.rept 17000
   .word 0xDEADBEEF
 //  .word 0xDEADBEAF
 //  .word 0xABABABAB
 .endr
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
+.word 0x00000013
 
+.globl code
+.align 4
+.section ".text"
+.rept 17000
+  .word 0xDEADBEEF
+.endr
