@@ -44,24 +44,12 @@ pub struct CSRLog {
   pub medeleg: u32,
   pub mcounteren: u32,
   pub scounteren: u32,
+  pub dcsr: u32,
 }
 
 // Implement PartialEq for CSRLog
 impl PartialEq for CSRLog {
     fn eq(&self, other: &Self) -> bool {
-        //self.mstatus_xIE == other.mstatus_xIE &&
-        //self.mstatus_xPIE == other.mstatus_xPIE &&
-        //self.mstatus_xPP == other.mstatus_xPP &&
-        //self.mstatus_XS == other.mstatus_XS &&
-        //self.mstatus_FS == other.mstatus_FS &&
-        //self.mstatus_MPRV == other.mstatus_MPRV &&
-        //self.mstatus_SUM == other.mstatus_SUM &&
-        //self.mstatus_MXR == other.mstatus_MXR &&
-        //self.mstatus_TVM == other.mstatus_TVM &&
-        //self.mstatus_TW == other.mstatus_TW &&
-        //self.mstatus_TSR == other.mstatus_TSR &&
-        //self.mstatus_xXL == other.mstatus_xXL &&
-        //self.mstatus_SD == other.mstatus_SD &&
         self.mstatus == other.mstatus &&
         self.frm == other.frm &&
         self.fflags == other.fflags &&
@@ -69,26 +57,14 @@ impl PartialEq for CSRLog {
         self.scause == other.scause &&
         self.medeleg == other.medeleg &&
         self.mcounteren == other.mcounteren &&
-        self.scounteren == other.scounteren
+        self.scounteren == other.scounteren &&
+        self.dcsr == other.dcsr
     }
 }
 
 impl CSRLog {
-    pub fn from_array(values: [u32; 8]) -> Self {
+    pub fn from_array(values: [u32; 9]) -> Self {
         CSRLog {
-            //mstatus_xIE: values[0],
-            //mstatus_xPIE: values[1],
-            //mstatus_xPP: values[2],
-            //mstatus_XS: values[3],
-            //mstatus_FS: values[4],
-            //mstatus_MPRV: values[5],
-            //mstatus_SUM: values[6],
-            //mstatus_MXR: values[7],
-            //mstatus_TVM: values[8],
-            //mstatus_TW: values[9],
-            //mstatus_TSR: values[10],
-            //mstatus_xXL: values[11],
-            //mstatus_SD: values[12],
             mstatus: values[0],
             frm: values[1],
             fflags: values[2],
@@ -97,6 +73,7 @@ impl CSRLog {
             medeleg: values[5],
             mcounteren: values[6],
             scounteren: values[7],
+            dcsr: values[8],
         }
     }
 }
@@ -385,23 +362,32 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
         let file = File::open(spike_file).expect("Unable to open spike trace file");
         let reader = io::BufReader::new(file);
 
-        let spike_store_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+mem\s+0x(\w+)\s+0x(\w+) [0x(\w+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)]").unwrap();
-        let spike_rest_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+(\w+)\s+0x(\w+)(\s+(\w+)\s+0x(\w+))? [0x(\w+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)]").unwrap();
+        let spike_store_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+mem\s+0x(\w+)\s+0x(\w+)").unwrap();
+        let spike_rest_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+(\w+)\s+0x(\w+)(\s+(\w+)\s+0x(\w+))?").unwrap();
         for line in reader.lines() {
-
-            let mut csr_values = [0u32; 8];
-
             if let Ok(log_line) = &line {
 
-                println!("{}",log_line);
+                let re = Regex::new(r"\[(.*?)\]").unwrap();
+                let csr = if let Some(caps) = re.captures(log_line) {
+                        let bracket_content = &caps[1];
+
+                        let mut numbers = [0u32; 9];
+                        let parsed_numbers: Vec<u32> = bracket_content
+                            .split(',')
+                            .filter_map(|s| u32::from_str_radix(s.trim_start_matches("0x"), 16).ok())
+                            .collect();
+
+                        if parsed_numbers.len() == 9 {
+                            numbers.copy_from_slice(&parsed_numbers);
+                        } else {
+                            println!("{:?}", parsed_numbers);
+                            panic!("Error: Processorfuzz log format not enforced by Spike");
+                        }
+
+                        Some(CSRLog::from_array(numbers))
+                } else {None};
 
                 if let Some(caps) = spike_store_commit_re.captures(log_line) {
-    
-                    for (i, cap) in caps.iter().skip(3).enumerate() {
-                        if let Some(cap) = cap {
-                            csr_values[i] = cap.as_str().parse().unwrap();
-                        }
-                    }
                     let ops = vec![
                         OpLog::MemOp(MemOp{op_type: OpType::Write, address: u64::from_str_radix(&caps[3], 16).unwrap(), value: u64::from_str_radix(&caps[4], 16).unwrap()})
                     ];
@@ -409,15 +395,10 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
                         pc: u64::from_str_radix(&caps[1], 16).unwrap(),
                         inst: u64::from_str_radix(&caps[2], 16).unwrap(),
                         ops,
-                        csr: Some(CSRLog::from_array(csr_values))
+                        csr: None
                     });
                 }
                 else if let Some(caps) = spike_rest_commit_re.captures(log_line) {
-                    for (i, cap) in caps.iter().skip(3).enumerate() {
-                        if let Some(cap) = cap {
-                            csr_values[i] = cap.as_str().parse().unwrap();
-                        }
-                    }
                     let mut ops = vec![
                         OpLog::RegOp(RegOp{op_type: OpType::Read, name: caps[3].to_string(), value: u64::from_str_radix(&caps[4], 16).unwrap()})
                     ];
@@ -432,7 +413,7 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
                         pc: u64::from_str_radix(&caps[1], 16).unwrap(),
                         inst: u64::from_str_radix(&caps[2], 16).unwrap(),
                         ops,
-                        csr: Some(CSRLog::from_array(csr_values))
+                        csr: None
                     });
                 }
             }

@@ -176,6 +176,10 @@ where
 
             for trace_line in observer.trace() {
 
+                if trace_line.csr.is_none() {
+                    continue;
+                }
+
                 let csr = trace_line.csr.unwrap();
 
                 // just a quick check to prune testcase achieving same csr states than previous one
