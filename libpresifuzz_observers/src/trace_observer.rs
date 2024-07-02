@@ -22,71 +22,80 @@ use std::io::{self, BufRead};
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct CSRLog {
-  mstatus_xIE: u32,
-  mstatus_xPIE: u32,
-  mstatus_xPP: u32,
-  mstatus_XS: u32,
-  mstatus_FS: u32,
-  mstatus_MPRV: u32,
-  mstatus_SUM: u32,
-  mstatus_MXR: u32,
-  mstatus_TVM: u32,
-  mstatus_TW: u32,
-  mstatus_TSR: u32,
-  mstatus_xXL: u32,
-  mstatus_SD: u32,
-  mscause: u32,
-  medeleg: u32,
-  mscounteren: u32,
-  frm: u32,
-  fflags: u32
+  //mstatus_xIE: u32,
+  //mstatus_xPIE: u32,
+  //mstatus_xPP: u32,
+  //mstatus_XS: u32,
+  //mstatus_FS: u32,
+  //mstatus_MPRV: u32,
+  //mstatus_SUM: u32,
+  //mstatus_MXR: u32,
+  //mstatus_TVM: u32,
+  //mstatus_TW: u32,
+  //mstatus_TSR: u32,
+  //mstatus_xXL: u32,
+  //mstatus_SD: u32,
+  pub mstatus: u32,
+  pub frm: u32,
+  pub fflags: u32,
+  pub mcause: u32,
+  pub scause: u32,
+  pub medeleg: u32,
+  pub mcounteren: u32,
+  pub scounteren: u32,
 }
 
 // Implement PartialEq for CSRLog
 impl PartialEq for CSRLog {
     fn eq(&self, other: &Self) -> bool {
-        self.mstatus_xIE == other.mstatus_xIE &&
-        self.mstatus_xPIE == other.mstatus_xPIE &&
-        self.mstatus_xPP == other.mstatus_xPP &&
-        self.mstatus_XS == other.mstatus_XS &&
-        self.mstatus_FS == other.mstatus_FS &&
-        self.mstatus_MPRV == other.mstatus_MPRV &&
-        self.mstatus_SUM == other.mstatus_SUM &&
-        self.mstatus_MXR == other.mstatus_MXR &&
-        self.mstatus_TVM == other.mstatus_TVM &&
-        self.mstatus_TW == other.mstatus_TW &&
-        self.mstatus_TSR == other.mstatus_TSR &&
-        self.mstatus_xXL == other.mstatus_xXL &&
-        self.mstatus_SD == other.mstatus_SD &&
-        self.mscause == other.mscause &&
-        self.medeleg == other.medeleg &&
-        self.mscounteren == other.mscounteren &&
+        //self.mstatus_xIE == other.mstatus_xIE &&
+        //self.mstatus_xPIE == other.mstatus_xPIE &&
+        //self.mstatus_xPP == other.mstatus_xPP &&
+        //self.mstatus_XS == other.mstatus_XS &&
+        //self.mstatus_FS == other.mstatus_FS &&
+        //self.mstatus_MPRV == other.mstatus_MPRV &&
+        //self.mstatus_SUM == other.mstatus_SUM &&
+        //self.mstatus_MXR == other.mstatus_MXR &&
+        //self.mstatus_TVM == other.mstatus_TVM &&
+        //self.mstatus_TW == other.mstatus_TW &&
+        //self.mstatus_TSR == other.mstatus_TSR &&
+        //self.mstatus_xXL == other.mstatus_xXL &&
+        //self.mstatus_SD == other.mstatus_SD &&
+        self.mstatus == other.mstatus &&
         self.frm == other.frm &&
-        self.fflags == other.fflags
+        self.fflags == other.fflags &&
+        self.mcause == other.mcause &&
+        self.scause == other.scause &&
+        self.medeleg == other.medeleg &&
+        self.mcounteren == other.mcounteren &&
+        self.scounteren == other.scounteren
     }
 }
 
 impl CSRLog {
-    pub fn from_array(values: [u32; 18]) -> Self {
+    pub fn from_array(values: [u32; 8]) -> Self {
         CSRLog {
-            mstatus_xIE: values[0],
-            mstatus_xPIE: values[1],
-            mstatus_xPP: values[2],
-            mstatus_XS: values[3],
-            mstatus_FS: values[4],
-            mstatus_MPRV: values[5],
-            mstatus_SUM: values[6],
-            mstatus_MXR: values[7],
-            mstatus_TVM: values[8],
-            mstatus_TW: values[9],
-            mstatus_TSR: values[10],
-            mstatus_xXL: values[11],
-            mstatus_SD: values[12],
-            mscause: values[13],
-            medeleg: values[14],
-            mscounteren: values[15],
-            frm: values[16],
-            fflags: values[17],
+            //mstatus_xIE: values[0],
+            //mstatus_xPIE: values[1],
+            //mstatus_xPP: values[2],
+            //mstatus_XS: values[3],
+            //mstatus_FS: values[4],
+            //mstatus_MPRV: values[5],
+            //mstatus_SUM: values[6],
+            //mstatus_MXR: values[7],
+            //mstatus_TVM: values[8],
+            //mstatus_TW: values[9],
+            //mstatus_TSR: values[10],
+            //mstatus_xXL: values[11],
+            //mstatus_SD: values[12],
+            mstatus: values[0],
+            frm: values[1],
+            fflags: values[2],
+            mcause: values[3],
+            scause: values[4],
+            medeleg: values[5],
+            mcounteren: values[6],
+            scounteren: values[7],
         }
     }
 }
@@ -311,11 +320,11 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
         let file = File::open(spike_file).expect("Unable to open spike trace file");
         let reader = io::BufReader::new(file);
 
-        let spike_store_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+mem\s+0x(\w+)\s+0x(\w+)").unwrap();
-        let spike_rest_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+(\w+)\s+0x(\w+)(\s+(\w+)\s+0x(\w+))?").unwrap();
+        let spike_store_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+mem\s+0x(\w+)\s+0x(\w+) [0x(\w+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)]").unwrap();
+        let spike_rest_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+(\w+)\s+0x(\w+)(\s+(\w+)\s+0x(\w+))? [0x(\w+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)]").unwrap();
         for line in reader.lines() {
 
-            let mut csr_values = [0u32; 18];
+            let mut csr_values = [0u32; 8];
 
             if let Ok(log_line) = &line {
 
