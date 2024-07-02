@@ -200,14 +200,11 @@ impl Display for TraceLog {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "TraceLog {{ pc: {}, inst: {}, ops: {:?}, csr: {} }}",
+            "TraceLog {{ pc: {}, inst: {}, ops: {:?}, csr: {:?} }}",
             self.pc,
             self.inst,
             self.ops.iter().map(|op| format!("{}", op)).collect::<Vec<_>>().join(", "),
-            match &self.csr {
-                Some(csr_log) => format!("{}", csr_log),
-                None => "None".to_string(),
-            }
+            self.csr
         )
     }
 }
@@ -364,11 +361,14 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
 
         let spike_store_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+mem\s+0x(\w+)\s+0x(\w+)").unwrap();
         let spike_rest_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+(\w+)\s+0x(\w+)(\s+(\w+)\s+0x(\w+))?").unwrap();
+        let mut csr = None;
+
         for line in reader.lines() {
             if let Ok(log_line) = &line {
 
                 let re = Regex::new(r"\[(.*?)\]").unwrap();
-                let csr = if let Some(caps) = re.captures(log_line) {
+
+                if let Some(caps) = re.captures(log_line) {
                         let bracket_content = &caps[1];
 
                         let mut numbers = [0u32; 9];
@@ -380,12 +380,11 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
                         if parsed_numbers.len() == 9 {
                             numbers.copy_from_slice(&parsed_numbers);
                         } else {
-                            println!("{:?}", parsed_numbers);
                             panic!("Error: Processorfuzz log format not enforced by Spike");
                         }
-
-                        Some(CSRLog::from_array(numbers))
-                } else {None};
+                
+                        csr = Some(CSRLog::from_array(numbers));
+                } 
 
                 if let Some(caps) = spike_store_commit_re.captures(log_line) {
                     let ops = vec![
@@ -395,7 +394,7 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
                         pc: u64::from_str_radix(&caps[1], 16).unwrap(),
                         inst: u64::from_str_radix(&caps[2], 16).unwrap(),
                         ops,
-                        csr: None
+                        csr: csr
                     });
                 }
                 else if let Some(caps) = spike_rest_commit_re.captures(log_line) {
@@ -413,7 +412,7 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
                         pc: u64::from_str_radix(&caps[1], 16).unwrap(),
                         inst: u64::from_str_radix(&caps[2], 16).unwrap(),
                         ops,
-                        csr: None
+                        csr: csr
                     });
                 }
             }

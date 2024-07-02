@@ -369,7 +369,9 @@ mod tests {
         let mut mgr = NopEventManager::new();
 
         let _ = spike_trace_observer.post_exec(&mut state, &input, &ExitKind::Ok);
-        println!("{:?}", spike_trace_observer.trace());
+        for item in spike_trace_observer.trace() {
+            println!("{}", item);
+        }
 
         let observers = tuple_list!(spike_trace_observer);
         feedback.is_interesting(&mut state, &mut mgr, &input, &observers, &ExitKind::Ok); 
