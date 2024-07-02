@@ -12,6 +12,7 @@ use libafl::{
 use core::{fmt::Debug};
 use serde::{Deserialize, Serialize};
 use libafl_bolts::{HasLen, Named};
+use std::fmt::{self, Display, Formatter};
 
 use std::fs::File;
 
@@ -100,6 +101,16 @@ impl CSRLog {
     }
 }
 
+impl Display for CSRLog {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CSRLog {{ mstatus: {}, frm: {}, fflags: {}, mcause: {}, scause: {}, medeleg: {}, mcounteren: {}, scounteren: {} }}",
+            self.mstatus, self.frm, self.fflags, self.mcause, self.scause, self.medeleg, self.mcounteren, self.scounteren
+        )
+    }
+}
+
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub enum OpType {
     Read,
@@ -110,6 +121,15 @@ pub enum OpType {
 impl PartialEq for OpType {
     fn eq(&self, other: &Self) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+impl Display for OpType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            OpType::Read => write!(f, "Read"),
+            OpType::Write => write!(f, "Write"),
+        }
     }
 }
 
@@ -130,6 +150,16 @@ impl PartialEq for MemOp {
     }
 }
 
+impl Display for MemOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "MemOp {{ op_type: {}, address: {}, value: {} }}",
+            self.op_type, self.address, self.value
+        )
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct RegOp {
     pub op_type: OpType,
@@ -143,6 +173,16 @@ impl PartialEq for RegOp {
         self.op_type == other.op_type &&
         self.name == other.name &&
         self.value == other.value
+    }
+}
+
+impl Display for RegOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RegOp {{ op_type: {}, name: {}, value: {} }}",
+            self.op_type, self.name, self.value
+        )
     }
 }
 
@@ -162,12 +202,37 @@ impl PartialEq for OpLog {
     }
 }
 
+impl Display for OpLog {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            OpLog::RegOp(reg_op) => write!(f, "RegOp({})", reg_op),
+            OpLog::MemOp(mem_op) => write!(f, "MemOp({})", mem_op),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct TraceLog {
     pub pc: u64,
     pub inst: u64,
     pub ops: Vec<OpLog>,
     pub csr: Option<CSRLog>,
+}
+
+impl Display for TraceLog {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "TraceLog {{ pc: {}, inst: {}, ops: {:?}, csr: {} }}",
+            self.pc,
+            self.inst,
+            self.ops.iter().map(|op| format!("{}", op)).collect::<Vec<_>>().join(", "),
+            match &self.csr {
+                Some(csr_log) => format!("{}", csr_log),
+                None => "None".to_string(),
+            }
+        )
+    }
 }
 
 pub trait ExecTraceParser {
@@ -327,6 +392,8 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
             let mut csr_values = [0u32; 8];
 
             if let Ok(log_line) = &line {
+
+                println!("{}",log_line);
 
                 if let Some(caps) = spike_store_commit_re.captures(log_line) {
     
