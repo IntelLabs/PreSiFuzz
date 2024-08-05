@@ -28,6 +28,10 @@ use libafl::{
 #[cfg(feature = "debug")]
 use color_print::cprintln;
 
+use libafl::HasFeedback;
+use libafl::feedbacks::Feedback;
+use libafl::prelude::EventFirer;
+
 /// A [`DiffExecutor`] wraps a primary executor, forwarding its methods, and a secondary one
 #[derive(Debug)]
 pub struct DiffExecutor<A, B, OTA, OTB, DOT> {
@@ -72,9 +76,9 @@ impl<A, B, EM, DOT, Z> Executor<EM, Z> for DiffExecutor<A, B, A::Observers, B::O
 where
     A: Executor<EM, Z> + HasObservers,
     B: Executor<EM, Z, State = A::State> + HasObservers,
-    EM: UsesState<State = A::State>,
+    EM: UsesState<State = A::State> + EventFirer,
     DOT: DifferentialObserversTuple<A::Observers, B::Observers, A::State>,
-    Z: UsesState<State = A::State>,
+    Z: UsesState<State = A::State> + HasFeedback,
 {
     fn run_target(
         &mut self,
@@ -106,6 +110,16 @@ where
         observers
             .differential
             .post_observe_first_all(observers.primary.as_mut())?;
+
+        // Skip second executor if first does not report interesting coverage
+        let is_corpus = fuzzer
+            .feedback_mut()
+            .is_interesting(state, mgr, input, observers, &ret1);
+
+        if is_corpus.is_ok() && is_corpus.unwrap() == False {
+            return Ok(ret1);
+        }
+
         observers
             .differential
             .pre_observe_second_all(observers.secondary.as_mut())?;

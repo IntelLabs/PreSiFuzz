@@ -66,6 +66,9 @@ use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric;
 use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric::*;
 use libpresifuzz_observers::verdi_xml_observer::VerdiXMLMapObserver;
 
+use libpresifuzz_observers::trace_observer::ExecTraceObserver;
+use libpresifuzz_observers::trace_observer::ProcessorFuzzExecTraceObserver;
+
 pub mod simv;
 use crate::simv::SimvCommandConfigurator;
 
@@ -206,8 +209,8 @@ pub fn fuzz() {
             SimvCommandConfigurator::new_from_config_file("config.yml", workdir, &mut [], "", 1);
 
         std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
-        let mut spike_trace_observer = ExecTraceObserver::<ProcessorfuzzExecTraceObserver>::new("spike_exec_trace_observer", "./spike.log");
-        let mut rocket_trace_observer = ExecTraceObserver::<CVA6ExecTraceObserver>::new("cva6_exec_trace_observer", "./cva6.log");
+        let mut spike_trace_observer = ExecTraceObserver::<ProcessoFuzzExecTraceObserver>::new("spike_exec_trace_observer", "./spike.log");
+        let mut cva6_trace_observer = ExecTraceObserver::<CVA6ExecTraceObserver>::new("cva6_exec_trace_observer", "./cva6.log");
 
         let mut objective = differential_feedback::DifferentialFeedback::new_with_observer(
             "spike_exec_trace_observer",
@@ -216,10 +219,8 @@ pub fn fuzz() {
         );
         
         let processorfuzz_feedback = ProcessorFuzzFeedback::new("spike_exec_trace_observer");
-        let mut feedback = feedback_or!(
-            processorfuzz_feedback,
-        );
-
+        let feedback = processorfuzz_feedback;
+        
         // Instantiate State with feedback, objective, in/out corpus
         let mut state = StdState::new(
             StdRand::with_seed(current_nanos()),
@@ -244,6 +245,7 @@ pub fn fuzz() {
             spike.into_executor(tuple_list!()),
             simv.into_executor(tuple_list!()),
             tuple_list!(spike_trace_observer, rocket_trace_observer),
+            processorfuzz_feedback
         );
 
         let corpus_dir = PathBuf::from(corpus_dir.to_string());
