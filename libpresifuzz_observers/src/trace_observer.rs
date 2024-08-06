@@ -4,6 +4,7 @@
 
 use libafl::{
     executors::{ExitKind},
+    observers::{DifferentialObserver, ObserversTuple},
     observers::{Observer},
     Error,
     inputs::{UsesInput},
@@ -13,7 +14,6 @@ use core::{fmt::Debug};
 use serde::{Deserialize, Serialize};
 use libafl_bolts::{HasLen, Named};
 use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
 use std::num::ParseIntError;
 
 use std::fs::File;
@@ -349,6 +349,31 @@ where
     }
 }
 
+impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for ExecTraceObserver<T> 
+where
+    OTA: ObserversTuple<S>,
+    OTB: ObserversTuple<S>,
+    S: UsesInput,
+    T: ExecTraceParser,
+{
+    fn pre_observe_first(&mut self, _observers: &mut OTA) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn post_observe_first(&mut self, _observers: &mut OTA) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn pre_observe_second(&mut self, _observers: &mut OTB) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn post_observe_second(&mut self, _observers: &mut OTB) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct SpikeExecTraceObserver;
 
@@ -403,6 +428,7 @@ impl ExecTraceParser for SpikeExecTraceObserver
         Ok(trace)
     }   
 }
+
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct ProcessorFuzzExecTraceObserver;
@@ -508,12 +534,12 @@ impl ExecTraceParser for ProcessorFuzzExecTraceObserver
 // }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-pub struct CVA6ExecTrace;
+pub struct CVA6ExecTraceObserver;
 
-impl ExecTraceParser for CVA6ExecTrace 
+impl ExecTraceParser for CVA6ExecTraceObserver 
 {
     fn new() -> Self {
-        CVA6ExecTrace {}
+        CVA6ExecTraceObserver {}
     }
 
     fn parse(&self, workdir: &str) -> Result<Vec<TraceLog>, Error> {
@@ -540,12 +566,11 @@ impl ExecTraceParser for CVA6ExecTrace
 
         Ok(trace)
     }
-    // OpLog::RegOp(RegOp{op_type: OpType::Read, name: caps[6].to_string(), value: u64::from_str_radix(&caps[7], 16).unwrap()})
-    // OpLog::RegOp(RegOp{op_type: OpType::Write, name: caps[2].to_string(), value: u64::from_str_radix(&caps[3], 16).unwrap()}),
 }
 
 
-impl CVA6ExecTrace 
+impl CVA6ExecTraceObserver
+
 {
 
     fn parse_hex_u64(&self, s: &str) -> Result<u64, ParseIntError> {
@@ -632,7 +657,7 @@ impl CVA6ExecTrace
         let exec_address = self.parse_hex_u64(parts[4].trim_end_matches(',')).ok()?;
         let cause = parts[6].to_string();
         let tval = self.parse_hex_u64(parts[8]).ok()?;
-        let mut ops = vec![
+        let ops = vec![
             OpLog::RegOp(RegOp{op_type: OpType::Trap, name: cause, value: tval})
         ];
 

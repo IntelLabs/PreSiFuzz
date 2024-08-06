@@ -40,6 +40,7 @@ use std::{
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DifferentialFeedback {
     first_name: String,
+    second_name: String,
     name: String,
     counter: u32,
 }
@@ -128,9 +129,11 @@ impl DifferentialFeedback {
     pub fn new_with_observer(
         name: &'static str,
         first_name: &'static str,
+        second_name: &'static str,
     ) -> Self {
         Self {
             first_name: first_name.to_string(),
+            second_name: second_name.to_string(),
             name: name.to_string(),
             counter: 0,
         }

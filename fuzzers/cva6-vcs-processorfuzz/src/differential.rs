@@ -116,7 +116,7 @@ where
             .feedback_mut()
             .is_interesting(state, mgr, input, observers, &ret1);
 
-        if is_corpus.is_ok() && is_corpus.unwrap() == False {
+        if is_corpus.is_ok() && is_corpus.unwrap() == false {
             return Ok(ret1);
         }
 

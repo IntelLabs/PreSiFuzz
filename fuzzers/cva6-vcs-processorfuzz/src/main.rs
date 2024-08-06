@@ -68,9 +68,12 @@ use libpresifuzz_observers::verdi_xml_observer::VerdiXMLMapObserver;
 
 use libpresifuzz_observers::trace_observer::ExecTraceObserver;
 use libpresifuzz_observers::trace_observer::ProcessorFuzzExecTraceObserver;
+use libpresifuzz_observers::trace_observer::CVA6ExecTraceObserver;
 
 pub mod simv;
 use crate::simv::SimvCommandConfigurator;
+pub mod spike;
+use crate::spike::SpikeCommandConfigurator;
 
 use libpresifuzz_mutators::riscv_isa::riscv_mutations;
 use libpresifuzz_mutators::scheduled::StdISAScheduledMutator;
@@ -79,6 +82,8 @@ use libpresifuzz_ec::llmp::Launcher;
 use libpresifuzz_ec::manager::*;
 use libpresifuzz_feedbacks::transferred::TransferredFeedback;
 use libpresifuzz_stages::sync::SyncFromDiskStage;
+
+use libpresifuzz_feedbacks::csr_feedback::CSRFeedback;
 
 mod differential;
 mod differential_feedback;
@@ -209,7 +214,7 @@ pub fn fuzz() {
             SimvCommandConfigurator::new_from_config_file("config.yml", workdir, &mut [], "", 1);
 
         std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
-        let mut spike_trace_observer = ExecTraceObserver::<ProcessoFuzzExecTraceObserver>::new("spike_exec_trace_observer", "./spike.log");
+        let mut spike_trace_observer = ExecTraceObserver::<ProcessorFuzzExecTraceObserver>::new("spike_exec_trace_observer", "./spike.log");
         let mut cva6_trace_observer = ExecTraceObserver::<CVA6ExecTraceObserver>::new("cva6_exec_trace_observer", "./cva6.log");
 
         let mut objective = differential_feedback::DifferentialFeedback::new_with_observer(
@@ -218,8 +223,7 @@ pub fn fuzz() {
             "differential_trace_feedback",
         );
         
-        let processorfuzz_feedback = ProcessorFuzzFeedback::new("spike_exec_trace_observer");
-        let feedback = processorfuzz_feedback;
+        let mut feedback = CSRFeedback::new_with_observer("spike_exec_trace_observer", Some(false));
         
         // Instantiate State with feedback, objective, in/out corpus
         let mut state = StdState::new(
@@ -241,11 +245,12 @@ pub fn fuzz() {
         // Finally, instantiate the fuzzer
         let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
+        let spike = SpikeCommandConfigurator::new_from_config_file("config.yml", workdir);
+
         let mut executor = differential::DiffExecutor::new(
             spike.into_executor(tuple_list!()),
             simv.into_executor(tuple_list!()),
-            tuple_list!(spike_trace_observer, rocket_trace_observer),
-            processorfuzz_feedback
+            tuple_list!(spike_trace_observer, cva6_trace_observer),
         );
 
         let corpus_dir = PathBuf::from(corpus_dir.to_string());
