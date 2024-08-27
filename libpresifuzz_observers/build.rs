@@ -5,7 +5,11 @@
 use std::path::Path;
 use std::env;
 
+extern crate bindgen;
+use std::path::PathBuf;
+
 fn main() {
+    println!("cargo::rerun-if-changed=src/npi_c.c");
 
     println!("Compiling using profile {:?}. Please condiser using test profile to fake LibNPI.so", env::var("PROFILE"));
 
@@ -31,20 +35,27 @@ fn main() {
         }
 
         verdi_lib.push_str("/share/NPI/lib/linux64");
+        
+        let mut npi_l1 = verdi_inc.clone();
+        npi_l1.push_str("/share/NPI/L1/C/inc/");
+
         verdi_inc.push_str("/share/NPI/inc");
 
         let npi_library_path = Path::new(&verdi_lib);
         let npi_include_path = Path::new(&verdi_inc);
+        let npi_l1_include_path = Path::new(&npi_l1);
 
         cc::Build::new()
             .cpp(true) // Switch to C++ library compilation.
             .file("./src/npi_c.c")
-            .flag("-lNPI -ldl -lpthread -lrt -lz")
+            .flag("-lNPI -ldl -lpthread -lrt -lz -lfsdb -lnpiL1")
             .include(npi_include_path)
             .include(npi_library_path)
+            .include(npi_l1_include_path)
             .compile("npi_c");
         println!("cargo:rustc-link-lib=NPI");
-
+        println!("cargo:rustc-link-lib=fsdb");
+        println!("cargo:rustc-link-lib=npiL1");
 
         let key = "VERDI_HOME";
         let verdi_home = match env::var(key) {

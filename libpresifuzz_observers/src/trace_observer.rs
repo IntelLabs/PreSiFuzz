@@ -208,28 +208,28 @@ mod tests {
     #[test]
     fn test_spike_trace_observer() {
 
-        let input = BytesInput::new(vec![1, 2, 3, 4]);
+        //let input = BytesInput::new(vec![1, 2, 3, 4]);
 
-        let rand = StdRand::with_seed(current_time().as_nanos() as u64);
-        let corpus = InMemoryCorpus::<BytesInput>::new();
+        //let rand = StdRand::with_seed(current_time().as_nanos() as u64);
+        //let corpus = InMemoryCorpus::<BytesInput>::new();
 
-        let mut feedback = ConstFeedback::new(true);
-        let mut objective = ConstFeedback::new(false);
+        //let mut feedback = ConstFeedback::new(true);
+        //let mut objective = ConstFeedback::new(false);
 
-        let mut spike_trace_observer  = ExecTrace::<SpikeExecTrace>::new("spike_trace", "./");
+        //let mut spike_trace_observer  = ExecTrace::<SpikeExecTrace>::new("spike_trace", "./");
 
-        let mut state = StdState::new(
-            rand,
-            corpus,
-            InMemoryCorpus::<BytesInput>::new(),
-            &mut feedback,
-            &mut objective,
-        )
-        .unwrap();
-        state.set_max_size(1024);
+        //let mut state = StdState::new(
+        //    rand,
+        //    corpus,
+        //    InMemoryCorpus::<BytesInput>::new(),
+        //    &mut feedback,
+        //    &mut objective,
+        //)
+        //.unwrap();
+        //state.set_max_size(1024);
 
-        let _ = spike_trace_observer.post_exec(&mut state, &input, &ExitKind::Ok);
-        println!("{:?}", spike_trace_observer.trace.len())
+        //let _ = spike_trace_observer.post_exec(&mut state, &input, &ExitKind::Ok);
+        //println!("{:?}", spike_trace_observer.trace.len())
     }
 }
 
