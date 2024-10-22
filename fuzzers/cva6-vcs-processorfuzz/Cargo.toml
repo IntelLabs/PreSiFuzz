@@ -6,6 +6,9 @@ authors = ["Nassim Corteggiani <nassim.corteggiani@intel.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+debug = []
+
 [profile.release]
 panic = "abort"
 lto = true
@@ -37,3 +40,4 @@ serde = { version = "1.0", default-features = false, features = ["alloc"] } # se
 clap = { version = "3.2", features = ["default"] }
 fs_extra = "1.2.0"
 wait-timeout = "0.1.5"
+color-print = "0.3.6"

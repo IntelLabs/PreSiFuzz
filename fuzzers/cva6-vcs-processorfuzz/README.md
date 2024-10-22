@@ -15,6 +15,8 @@ Follow the installation instructions from the Spike GitHub repository.
 
 * [RISC-V GNU Compiler Toolchain] (https://github.com/riscv-collab/riscv-gnu-toolchain)
 
+* [ProcessorFuzz riscv-isa-sim] (https://github.com/sammy17/riscv-isa-sim.git)
+
 With everything properly installed, please make sure to set the right environment variables in your `bashrc` or equivalent file. The fuzzer expects the following configuration in bash:
 
 Please, find below an example of configuratio
