@@ -42,6 +42,34 @@ jobs:
           toolchain: stable
           components: clippy
           command: build
+      - name: rust-cargo
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          toolchain: stable
+          components: clippy
+          command: build
+          args: --manifest-path fuzzers/chipyard-vcs-fuzzer/Cargo.toml
+      - name: rust-cargo
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          toolchain: stable
+          components: clippy
+          command: build
+          args: --manifest-path fuzzers/cva6-vcs-fuzzer/Cargo.toml
+      - name: rust-cargo
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          toolchain: stable
+          components: clippy
+          command: build
+          args: --manifest-path fuzzers/opentitan-fuzzer-vcs/Cargo.toml
+      - name: rust-cargo
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          toolchain: stable
+          components: clippy
+          command: build
+          args: --manifest-path fuzzers/secworks-vcs/Cargo.toml
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
       - name: Run rust-clippy
