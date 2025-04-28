@@ -27,7 +27,7 @@ libpresifuzz_mutators = {path="../../libpresifuzz_mutators"}
 libpresifuzz_observers = { path = "../../libpresifuzz_observers"}
 libpresifuzz_feedbacks = { path = "../../libpresifuzz_feedbacks"}
 libpresifuzz_stages = { path = "../../libpresifuzz_stages"}
-libafl = { version = "0.11.2"}
+libafl = { version = "0.15.2"}
 libafl_bolts = { version = "0.11.2"}
 yaml-rust = "0.4.5"
 rand = "0.8.5"
