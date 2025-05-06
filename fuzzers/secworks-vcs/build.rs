@@ -57,7 +57,7 @@ fn main() {
             .success());
     }
 
-    if env::var("PRESIFUZZ_DUMMY").is_ok() {
+    if !env::var("PRESIFUZZ_DUMMY").is_ok() {
         assert!(Command::new("fusesoc")
             .arg("run")
             .arg("--build")
