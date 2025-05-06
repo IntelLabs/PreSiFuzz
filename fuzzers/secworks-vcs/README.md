@@ -27,5 +27,10 @@ You should be able to run a single instance of the fuzzer using:
 AFL_LAUNCHER_CLIENT=1 ./target/debug/secworks-vcs
 ```
 
+To get more insight about fuzzer steps:
+```
+LIBAFL_DEBUG_OUTPUT=1  AFL_LAUNCHER_CLIENT=1 ./target/debug/secworks-vcs
+```
+
 ```AFL_LAUNCHER_CLIENT``` is a the fuzzer unique id.
 Without this environment variable, the fuzzer starts in broker mode collecting stats log into the systemfile to monitor other fuzzer instances.
