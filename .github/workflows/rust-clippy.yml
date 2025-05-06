@@ -27,6 +27,13 @@ jobs:
       security-events: write
       actions: read
     steps:
+      - name: Install Python and pip
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.3'
+          packages: | fusesoc
+      - name: Verify FuseSoC installation
+        run: fusesoc --version
       - name: Checkout code
         uses: actions/checkout@v4.1.5
         with:
@@ -51,12 +58,6 @@ jobs:
           args: --manifest-path fuzzers/secworks-vcs/Cargo.toml
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
-      - name: Install Python and pip (if needed)
-        run: sudo apt-get update && sudo apt-get install -y python3 python3-pip
-      - name: Install FuseSoC
-        run: pip3 install fusesoc
-      - name: Verify FuseSoC installation
-        run: fusesoc --version
       - name: Run rust-clippy
         run: cargo clippy --all-features --profile=test --message-format=json | clippy-sarif | tee
           rust-clippy-results.sarif | sarif-fmt
