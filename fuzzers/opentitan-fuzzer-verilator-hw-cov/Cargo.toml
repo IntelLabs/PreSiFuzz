@@ -15,7 +15,7 @@ std = []
 
 [dependencies]
 clap = { version = "3.2", features = ["default"] }
-libafl = { version = "0.8.2", features = ["std"], no-default-features = true } 
+libafl = { version = "0.11.2", features = ["std"], no-default-features = true } 
 # libafl = { path = "../../dep/libafl/libafl" }
 nix = "0.24"
 num-traits = { version = "0.2", default-features = false }
