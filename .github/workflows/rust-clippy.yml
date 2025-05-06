@@ -55,6 +55,8 @@ jobs:
           toolchain: stable
           components: clippy
           command: build
+          env:
+            PRESIFUZZ_DUMMY: 1
           args: --manifest-path fuzzers/secworks-vcs/Cargo.toml
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
