@@ -43,17 +43,68 @@ use libafl::prelude::Input;
 use std::fs::File;
 use std::io::Write;
 use libafl::prelude::MultiMonitor;
-use libafl::prelude::Launcher;
+
+use libpresifuzz_ec::llmp::Launcher;
+use libpresifuzz_ec::manager::*;
+use libpresifuzz_feedbacks::transferred::TransferredFeedback;
+use libpresifuzz_stages::sync::SyncFromDiskStage;
+
 use std::{
     process::{Stdio},
 };
 use std::process::Command as pcmd;
 
+
+use cfg_if::cfg_if;
+
+#[cfg(libnpi)]
 use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
+#[cfg(libnpi)]
 use libpresifuzz_observers::verdi_observer::VerdiShMapObserver;
+#[cfg(libnpi)]
 use libpresifuzz_observers::verdi_observer::VerdiCoverageMetric;
+
+#[cfg(not(libnpi))]
+use libpresifuzz_feedbacks::verdi_xml_feedback::VerdiFeedback;
+#[cfg(not(libnpi))]
+use libpresifuzz_observers::verdi_xml_observer::VerdiXMLMapObserver;
+#[cfg(not(libnpi))]
+use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric;
+#[cfg(not(libnpi))]
+use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric::*;
+
 use tempdir::TempDir;
 use std::env;
+
+#[cfg(not(libnpi))]
+macro_rules! create_verdi_observer_and_feedback {
+    ($fdb:ident, $obs:ident, $metric:ident, $minimized:expr, $workdir:ident) => {
+        let ($obs, $fdb) = {
+            let verdi_observer = VerdiXMLMapObserver::new(
+                concat!("verdi_", stringify!($metric)),
+                &"Coverage.vdb".to_string(),
+                &$workdir.to_string(),
+                match $metric {
+                    Toggle => VerdiCoverageMetric::Toggle,
+                    Branch => VerdiCoverageMetric::Branch,
+                    Line => VerdiCoverageMetric::Line,
+                    Condition => VerdiCoverageMetric::Condition,
+                    FSM => VerdiCoverageMetric::FSM,
+                    _ => VerdiCoverageMetric::Toggle,
+                },
+                &"".to_string(), //&"ariane_tb.dut.i_ariane".to_string()
+            );
+
+            let feedback = VerdiFeedback::new_with_observer(
+                concat!("verdi_", stringify!($metric)),
+                &$workdir.to_string(),
+                $minimized,
+            );
+            (feedback, verdi_observer)
+        };
+    };
+}
+
 
 #[derive(Debug)]
 pub struct WorkDir(Option<TempDir>);
@@ -128,21 +179,29 @@ pub fn main() {
     
     let cores = Cores::all().unwrap();
 
-    const MAP_SIZE: usize = 65536*4;
+            
+    cfg_if::cfg_if! {
+        if #[cfg(libnpi)] {
 
-    //Coverage map shared between observer and executor
-    #[cfg(target_vendor = "apple")]
-    let mut shmem_provider = UnixShMemProvider::new().unwrap();
-    #[cfg(not(target_vendor = "apple"))]
-    let mut shmem_provider = StdShMemProvider::new().unwrap();
-    let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
+        const MAP_SIZE: usize = 65536*4;
+        //Coverage map shared between observer and executor
+        #[cfg(target_vendor = "apple")]
+        let mut shmem_provider = UnixShMemProvider::new().unwrap();
+        #[cfg(not(target_vendor = "apple"))]
+        let mut shmem_provider = StdShMemProvider::new().unwrap();
+        let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
+        }
+    }
+
+    let sync_dir = format!("{}/sync/", std::env::current_dir().unwrap().display());
+    println!("sync_dir: {}", sync_dir);
     
     let mon = MultiMonitor::new(|s| println!("{s}"));
     // let mon = SimpleMonitor::new(|s| println!("{}", s));
     // let mut mgr = SimpleEventManager::new(mon);
     
     let mut run_client = |_state: Option<_>, mut mgr, _core_id| {
-   
+ 
         let simv_name = "./secworks_crypto_sha256_0".to_string();
         let simv_args = "+TESTCASE=testcase -cm tgl".to_string();
         let vdb_name = "Coverage.vdb".to_string();
@@ -179,28 +238,52 @@ pub fn main() {
         dst.push_str("/seeds");
         copy_dir_all(seeds_dir, Path::new(&dst))?;
 
-        let mut src = workdir.clone();
-        src.push_str(&format!("/{}", vdb_name));
-        let mut dst = workdir.clone();
-        dst.push_str("/Virgin_coverage.vdb");
-        copy_dir_all(Path::new(&src), Path::new(&dst))?;
-        
+        cfg_if::cfg_if! {
+            if #[cfg(libnpi)] {
+                let mut src = workdir.clone();
+                src.push_str(&format!("/{}", vdb_name));
+                let mut dst = workdir.clone();
+                dst.push_str("/Virgin_coverage.vdb");
+                copy_dir_all(Path::new(&src), Path::new(&dst))?;
+            }
+        }
+
         std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
 
-
-        let shmem_buf = shmem.as_mut_slice();
-        let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
+        cfg_if::cfg_if! {
+            if #[cfg(libnpi)] {
+                let shmem_buf = shmem.as_mut_slice();
+                let shmem_ptr = shmem_buf.as_mut_ptr() as *mut u32;
+            }
+        }
 
         let (mut feedback, verdi_observer) = 
         {
-            let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &workdir, shmem_ptr, &VerdiCoverageMetric::Toggle, &"".to_string())};
 
-            let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &workdir);
-            // let feedback = MaxMapFeedback::new(&verdi_observer);
+            cfg_if::cfg_if! {
 
-            (feedback, verdi_observer)
+                if #[cfg(libnpi)] {
+
+                    println!("Coverage collected using VERDI libNPI");
+                    let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &workdir, shmem_ptr, &VerdiCoverageMetric::Toggle, &"".to_string())};
+
+                    let feedback = VerdiFeedback::<{MAP_SIZE/4}>::new_with_observer("verdi_map", MAP_SIZE, &workdir);
+
+                } else {
+
+                    println!("Coverage collected using xml parsers");
+                    create_verdi_observer_and_feedback!(
+                        verdi_observer_tgl,
+                        verdi_feedback_tgl,
+                        Toggle,
+                        false,
+                        workdir
+                    );
+
+                    (verdi_feedback_tgl, verdi_observer_tgl)
+                }
+            }
         };
-
 
         // A feedback to choose if an input is a solution or not
         // We want to do the same crash deduplication that AFL does
@@ -276,29 +359,53 @@ pub fn main() {
 
         // Setup a mutational stage with a basic bytes mutator
         let mutator = StdScheduledMutator::new(havoc_mutations());
-        let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+        
+        // Instantiate a mutational stage that will apply mutations to the selected testcase
+        let sync_dir = PathBuf::from(sync_dir.to_string());
+        //let mut stages = tuple_list!(SyncFromDiskStage::new(sync_dir), StdMutationalStage::with_max_iterations(mutator, 1));
+        let mut stages = tuple_list!(
+            SyncFromDiskStage::new(sync_dir),
+            StdMutationalStage::new(mutator)
+        );
 
         fuzzer
             .fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)
             .expect("Error in the fuzzing loop");
         Ok(())
     };
+ 
+    cfg_if::cfg_if! {
+        if #[cfg(libnpi)] {
+            match Launcher::<_, _, _, BytesInput>::builder()
+                .configuration(EventConfig::from_name("default"))
+                .shmem_provider(shmem_provider)
+                .monitor(mon)
+                .run_client(&mut run_client)
+                .stdout_file(Some("/dev/null"))
+                .sync_dir(sync_dir.clone())
+                .build()
+                .launch()
+            {
+                Ok(()) => (),
+                Err(Error::ShuttingDown) => (),
+                Err(err) => panic!("Fuzzingg failed {err:?}"),
+            };
+        } else {
+            match Launcher::<_, _, _, BytesInput>::builder()
+                .configuration(EventConfig::from_name("default"))
+                .monitor(mon)
+                .run_client(&mut run_client)
+                .stdout_file(Some("/dev/null"))
+                .sync_dir(sync_dir.clone())
+                .build()
+                .launch()
+            {
+                Ok(()) => (),
+                Err(Error::ShuttingDown) => (),
+                Err(err) => panic!("Fuzzingg failed {err:?}"),
+            };
 
-    match Launcher::builder()
-        .configuration(EventConfig::AlwaysUnique)
-        .shmem_provider(shmem_provider)
-        .monitor(mon)
-        .run_client(&mut run_client)
-        .cores(&cores)
-        .broker_port(1337)
-        .stdout_file(Some("/dev/null"))
-        .build()
-        .launch()
-    {
-        Ok(()) => (),
-        Err(Error::ShuttingDown) => (),
-        Err(err) => panic!("Fuzzingg failed {err:?}"),
-    };
-
+        }
+    }
 }
 

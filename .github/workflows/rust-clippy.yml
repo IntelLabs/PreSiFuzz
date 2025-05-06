@@ -27,6 +27,13 @@ jobs:
       security-events: write
       actions: read
     steps:
+      - name: Install Python and pip
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.3'
+          packages: fusesoc
+      - name: Install Fusesoc
+        run: pip3 install fusesoc
       - name: Checkout code
         uses: actions/checkout@v4.1.5
         with:
@@ -42,27 +49,6 @@ jobs:
           toolchain: stable
           components: clippy
           command: build
-      - name: rust-cargo
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          toolchain: stable
-          components: clippy
-          command: build
-          args: --manifest-path fuzzers/chipyard-vcs-fuzzer/Cargo.toml
-      - name: rust-cargo
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          toolchain: stable
-          components: clippy
-          command: build
-          args: --manifest-path fuzzers/cva6-vcs-fuzzer/Cargo.toml
-      - name: rust-cargo
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          toolchain: stable
-          components: clippy
-          command: build
-          args: --manifest-path fuzzers/opentitan-fuzzer-vcs/Cargo.toml
       - name: rust-cargo
         uses: actions-rs/cargo@v1.0.1
         with:

@@ -6,6 +6,7 @@ use std::process::Command;
 use std::path::PathBuf;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::env;
 
 fn main() {
 
@@ -56,18 +57,19 @@ fn main() {
             .success());
     }
 
-    
-    assert!(Command::new("fusesoc")
-        .arg("run")
-        .arg("--build")
-        .arg("--target=tb_fuzz")
-        .arg("--tool=vcs")
-        .arg("secworks:crypto:sha256")
-        .arg("--vcs_options")
-        .arg("-LDFLAGS -Wl,--no-as-needed -cm line+fsm+cond+tgl+branch -cm_dir Coverage.vdb -full64 -sverilog")
-        .status()
-        .unwrap()
-        .success());
+    if !env::var("PRESIFUZZ_DUMMY").is_ok() {
+        assert!(Command::new("fusesoc")
+            .arg("run")
+            .arg("--build")
+            .arg("--target=tb_fuzz")
+            .arg("--tool=vcs")
+            .arg("secworks:crypto:sha256")
+            .arg("--vcs_options")
+            .arg("-LDFLAGS -Wl,--no-as-needed -cm line+fsm+cond+tgl+branch -cm_dir Coverage.vdb -full64 -sverilog")
+            .status()
+            .unwrap()
+            .success());
+    }
 
     // let args = "fusesoc run --target=tb_fuzz --tool=vcs secworks:crypto:sha256 --vcs_options '-LDFLAGS -Wl,--no-as-needed -cm line+fsm+cond+tgl+branch -cm_dir Coverage.vdb -full64 -sverilog' --run_options '+TESTCASE=/home/nasm/Projects/HW_Fuzzing/research.security.fuzzing.hardware-fuzzing/fuzzers/baby-rtl-fuzzer/fuzz_inputs.hex -cm tgl'";
     // let args = args.split(' ');

@@ -124,7 +124,7 @@ where
         }
 
         self.score = (o_map[0] as f32 / o_map[1] as f32) * 100.0;
-        println!("Analyzing vdb with coverage {} score at {}% for {}/{}", self.name, self.score, o_map[0], o_map[1]);
+        println!("Analyzing xml from vdb with coverage {} score at {}% for {}/{}", self.name, self.score, o_map[0], o_map[1]);
 
         let mut coverable: u32 = 0;
         let mut covered: u32 = 0;
