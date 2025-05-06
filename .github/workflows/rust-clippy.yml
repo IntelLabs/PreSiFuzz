@@ -27,13 +27,13 @@ jobs:
       security-events: write
       actions: read
     steps:
+      - uses: actions/setup-python@v5
       - name: Install Python and pip
-        uses: actions/setup-python@v5
         with:
           python-version: '3.12.3'
           packages: fusesoc
-      - name: Verify FuseSoC installation
-        run: fusesoc --version
+      - name: Install FuseSoC
+        run: pip3 install fusesoc
       - name: Checkout code
         uses: actions/checkout@v4.1.5
         with:
