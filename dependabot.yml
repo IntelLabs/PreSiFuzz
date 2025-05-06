@@ -1,0 +1,136 @@
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/chipyard-vcs-fuzzer"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/cva6-vcs-fuzzer"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/opentitan-fuzzer-vcs"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/opentitan-fuzzer-verilator-hw-cov"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/opentitan-fuzzer-verilator-sw-cov"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/secworks-vcs"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libpresifuzz_ec"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libpresifuzz_mutators"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libpresifuzz_riscv"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libpresifuzz_stages"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libafl_verilator"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libpresifuzz_feedbacks"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libpresifuzz_observers"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
+
+  - package-ecosystem: "cargo"
+    directory: "/libpresifuzz_schedulers"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "libafl"
+      - dependency-name: "libafl_bolts"
+      - dependency-name: "libafl_targets"
