@@ -19,8 +19,6 @@ use libafl::prelude::Input;
 use std::process::Command as pcmd;
 use wait_timeout::ChildExt;
 
-#[cfg(not(target_vendor = "apple"))]
-use libafl_bolts::shmem::StdShMemProvider;
 #[cfg(target_vendor = "apple")]
 use libafl_bolts::shmem::UnixShMemProvider;
 use libafl_bolts::{
@@ -28,8 +26,7 @@ use libafl_bolts::{
         current_nanos,
         rands::StdRand,
         tuples::tuple_list,
-        shmem::{ShMemProvider},
-        AsMutSlice, AsSlice};
+        shmem::{ShMemProvider}, AsSlice};
 
 #[cfg(not(feature = "tui"))]
 use libafl::{
@@ -50,7 +47,6 @@ use std::io::prelude::*;
 use std::fs::File;
 use tempdir::TempDir;
 
-use cfg_if::cfg_if;
 
 #[cfg(libnpi)]
 use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
@@ -69,8 +65,6 @@ use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric;
 use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric::*;
 
 use libpresifuzz_ec::llmp::Launcher;
-use libpresifuzz_ec::manager::*;
-use libpresifuzz_feedbacks::transferred::TransferredFeedback;
 use libpresifuzz_stages::sync::SyncFromDiskStage;
 
 #[cfg(not(libnpi))]
@@ -249,8 +243,6 @@ pub fn main() {
         
         std::env::set_current_dir(&workdir).expect("Unable to change into {dir}");
 
-        const MAP_SIZE: usize = 38542;
-
         cfg_if::cfg_if! {
             if #[cfg(libnpi)] {
                 let shmem_buf = shmem.as_mut_slice();
@@ -264,6 +256,8 @@ pub fn main() {
             cfg_if::cfg_if! {
 
                 if #[cfg(libnpi)] {
+        
+                    const MAP_SIZE: usize = 38542;
 
                     println!("Coverage collected using VERDI libNPI");
                     let verdi_observer = unsafe{VerdiShMapObserver::<{MAP_SIZE/4}>::from_mut_ptr("verdi_map", &workdir, shmem_ptr, &VerdiCoverageMetric::Toggle, &"".to_string())};
