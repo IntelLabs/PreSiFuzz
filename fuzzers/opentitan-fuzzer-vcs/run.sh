@@ -13,7 +13,7 @@ cargo clean \
 && fusesoc library add opentitan https://github.com/timothytrippel/opentitan.git \
 && cd ./fusesoc_libraries/opentitan \
 && git checkout hwfuzz-checkpoint \
-&& pip3 install --user -U -r python-requirements.txt \
+&& pip3 install -U -r python-requirements.txt \
 && cd ../.. \
 && cp ./tb/tb_aes.sv ./fusesoc_libraries/opentitan/hw/ip/aes/rtl/tb_aes.sv \
 && sed -i '/aes.sv/a \ \ \ \ \ \ - rtl\/tb_aes.sv' fusesoc_libraries/opentitan/hw/ip/aes/aes.core \
