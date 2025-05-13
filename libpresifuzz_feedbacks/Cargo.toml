@@ -19,9 +19,13 @@ default = ["std"]
 const_false = []
 const_true = []
 std = []
+serdeany_autoreg = ["std"]
 
 [build-dependencies]
 cc = "1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(serdeany_autoreg)'] }
 
 [dependencies]
 libafl = { version = "0.11.2"}

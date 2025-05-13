@@ -30,11 +30,6 @@ use crate::ISAInput;
 use crate::ISAMutatorsTuple;
 
 
-
-
-
-use libafl_bolts::HasLen;
-
 /// A [`Mutator`] that composes multiple mutations into one.
 pub trait ComposedByMutations<MT, S>
 where
@@ -77,8 +72,6 @@ where
         I: HasBytesVec + Clone,
         S: HasRand,
     {
-        use libpresifuzz_riscv::cpu_profile::*;
-        
         let mut isa_input = ISAInput::from_input(input); 
 
         let mut r = MutationResult::Skipped;

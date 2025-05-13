@@ -10,9 +10,6 @@
 */
 use libafl::prelude::HasRand;
 use crate::instruction::Instruction;
-use libafl::prelude::HasMaxSize;
-use libafl::prelude::MutationResult;
-use libafl_bolts::Named;
 
 use libafl_bolts::{
     rands::Rand,

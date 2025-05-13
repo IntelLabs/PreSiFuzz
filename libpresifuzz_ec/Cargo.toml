@@ -18,9 +18,15 @@ keywords = ["fuzzing", "hardware", "simulation"]
 default = ["std"]
 std = []
 debug = []
+serialize_bytes = ["std"]
+introspection = ["std"]
+fork = ["std"]
 
 [build-dependencies]
 cc = "1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(serialize_bytes)', 'cfg(introspection)', 'cfg(serdeany_autoreg)', 'cfg(fork)'] }
 
 [dependencies]
 libafl = { version = "0.11.2"}

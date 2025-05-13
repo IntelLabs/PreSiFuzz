@@ -22,11 +22,10 @@ use wait_timeout::ChildExt;
 #[cfg(target_vendor = "apple")]
 use libafl_bolts::shmem::UnixShMemProvider;
 use libafl_bolts::{
-        core_affinity::Cores,
         current_nanos,
         rands::StdRand,
         tuples::tuple_list,
-        shmem::{ShMemProvider}, AsSlice};
+        AsSlice};
 
 #[cfg(not(feature = "tui"))]
 use libafl::{
@@ -169,8 +168,6 @@ pub fn simv_spawn_child<I: Input + HasTargetBytes>(input: &I, _workdir: String, 
 
 #[allow(clippy::similar_names)]
 pub fn main() {
-
-    let cores = Cores::all().unwrap();
     
     cfg_if::cfg_if! {
         if #[cfg(libnpi)] {

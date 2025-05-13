@@ -12,6 +12,10 @@ edition = "2021"
 default = ["std"]
 tui = []
 std = []
+libnpi = ["std"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(libnpi)'] }
 
 [dependencies]
 cfg-if = "1"
