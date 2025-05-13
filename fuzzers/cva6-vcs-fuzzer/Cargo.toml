@@ -34,6 +34,6 @@ rand = "0.8.5"
 serde_yaml = "0.9.27"
 tempdir = "0.3.7"
 serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
-clap = { version = "3.2", features = ["default"] }
+clap = { version = "4.5.38", features = ["default"] }
 fs_extra = "1.2.0"
 wait-timeout = "0.1.5"

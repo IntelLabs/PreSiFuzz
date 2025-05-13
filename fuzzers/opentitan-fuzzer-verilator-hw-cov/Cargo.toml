@@ -14,9 +14,8 @@ tui = []
 std = []
 
 [dependencies]
-clap = { version = "3.2", features = ["default"] }
+clap = { version = "4.5.38", features = ["default"] }
 libafl = { version = "0.8.2", features = ["std"], no-default-features = true } 
-# libafl = { path = "../../dep/libafl/libafl" }
 nix = "0.24"
 num-traits = { version = "0.2", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
