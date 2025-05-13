@@ -37,3 +37,5 @@ libc = "0.2"
 tempdir = "0.3.7"
 wait-timeout = "0.1.5"
 fs_extra = "1.2.0"
+libpresifuzz_observers = { path = "../../libpresifuzz_observers" }
+libpresifuzz_feedbacks = { path = "../../libpresifuzz_feedbacks" }
