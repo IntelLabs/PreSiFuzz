@@ -23,7 +23,6 @@ std = []
 cc = "1"
 
 [dependencies]
-clap = { version = "3.2", features = ["default"] }
 libafl = { version = "0.11.2"}
 libafl_bolts = { version = "0.11.2"}
 nix = "0.24"
