@@ -11,9 +11,6 @@ use std::fs::File;
 fn main() {
     println!("cargo:warning=MESSAGE");
 
-    if Path::new("./build").is_dir() {
-        assert!(fs::remove_dir_all("./build").is_ok());
-    }
     assert!(fs::create_dir("./build").is_ok());
 
     // Check if chipyard directory exists

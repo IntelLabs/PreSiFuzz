@@ -78,7 +78,7 @@ where
         }
 
         let idx = state.rand_mut().below(input.instructions.len() as u64) as usize;
-        let mut meta = &mut input.instructions[idx]; 
+        let meta = &mut input.instructions[idx]; 
 
         let mut inst : u32 = 0;
         let mask: u32 = meta.mask;

@@ -19,12 +19,15 @@ default = ["std"]
 tui = []
 std = []
 debug = []
+python = ["std"]
 
 [build-dependencies]
 cc = "1"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(python)'] }
+
 [dependencies]
-clap = { version = "3.2", features = ["default"] }
 libafl = { version = "0.11.2"}
 libafl_bolts = { version = "0.11.2"}
 nix = "0.24"

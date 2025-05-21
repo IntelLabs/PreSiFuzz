@@ -19,12 +19,17 @@ default = ["std"]
 tui = []
 std = []
 debug = []
+serialize_bytes = ["std"]
+introspection = ["std"]
+serdeany_autoreg = ["std"]
 
 [build-dependencies]
 cc = "1"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(serialize_bytes)', 'cfg(introspection)', 'cfg(serdeany_autoreg)'] }
+
 [dependencies]
-clap = { version = "3.2", features = ["default"] }
 libafl = { version = "0.11.2"}
 libafl_bolts = { version = "0.11.2"}
 nix = "0.24"

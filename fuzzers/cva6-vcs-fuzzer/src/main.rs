@@ -56,9 +56,6 @@ use std::io::Result;
 use std::path::Path;
 use std::rc::Rc;
 
-use clap::AppSettings;
-use clap::{App, Arg};
-
 //use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
 
 use libpresifuzz_feedbacks::verdi_xml_feedback::VerdiFeedback;

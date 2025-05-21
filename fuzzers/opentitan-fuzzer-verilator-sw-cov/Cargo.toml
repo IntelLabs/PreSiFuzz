@@ -14,7 +14,7 @@ tui = []
 std = []
 
 [dependencies]
-clap = { version = "3.2", features = ["default"] }
+clap = { version = "4.5.38", features = ["default"] }
 libafl = "0.8.2"
 nix = "0.24"
 num-traits = { version = "0.2", default-features = false }

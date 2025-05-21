@@ -11,10 +11,7 @@ use std::fs;
 fn main() {
     println!("cargo:warning=MESSAGE");
 
-    // if Path::new("./build").is_dir() {
-        // assert!(fs::remove_dir_all("./build").is_ok());
-    // }
-    // assert!(fs::create_dir("./build").is_ok());
+    assert!(fs::create_dir("./build").is_ok());
 
     let rtl_dir = PathBuf::from("cva6");
     if !rtl_dir.exists() {
