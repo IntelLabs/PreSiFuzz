@@ -11,9 +11,9 @@ use libafl::{
     corpus::Testcase,
     events::EventFirer,
     executors::ExitKind,
-    inputs::{Input, UsesInput},
+    inputs::{UsesInput},
     observers::{ObserversTuple},
-    state::HasClientPerfMonitor,
+    state::State,
     Error,
     feedbacks::Feedback
 };
@@ -34,7 +34,7 @@ pub struct VerilatorFeedback {
 
 impl<S> Feedback<S> for VerilatorFeedback
 where
-    S: UsesInput + HasClientPerfMonitor,
+    S: UsesInput + State,
 {
     #[allow(clippy::wrong_self_convention)]
     fn is_interesting<EM, OT>(
@@ -72,7 +72,7 @@ where
 
     /// Append to the testcase the generated metadata in case of a new corpus item
     #[inline]
-    fn append_metadata<OT>(&mut self, _state: &mut S, observers: &OT ,_testcase: &mut Testcase<S::Input>) -> Result<(), Error> 
+    fn append_metadata<OT>(&mut self, _state: &mut S, _observers: &OT ,_testcase: &mut Testcase<S::Input>) -> Result<(), Error> 
     where
         OT: ObserversTuple<S>,
     {

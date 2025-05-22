@@ -15,6 +15,7 @@ out_dir = "custom"
 
 [workspace]
 members = [
+    "libpresifuzz_verilator",
     "libpresifuzz_feedbacks",
     "libpresifuzz_observers",
     "libpresifuzz_schedulers",

@@ -26,10 +26,10 @@ std = []
 cc = "1"
 
 [dependencies]
-clap = { version = "3.2", features = ["default"] }
+clap = { version = "4.5.38", features = ["default"] }
 # libafl = { path = "../dep/libafl/libafl" }
-libafl = { version = "0.11.1" }
-libafl_bolts = { version = "0.11.1" }
+libafl = { version = "0.11.2" }
+libafl_bolts = { version = "0.11.2" }
 nix = "0.24"
 num-traits = { version = "0.2", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
