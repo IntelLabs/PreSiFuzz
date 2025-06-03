@@ -81,31 +81,6 @@ end_handler_incr_mepc2:
 end_handler_ret:
         mret
 
-//csrr  t3, mepc
-//csrr  t4, 0xfC2 #CSR_MSTATUS_REG_ADDR
-//andi  t4, t4, 0x00000080 #MSTATUS_IL_MASK
-//srli  t4, t4, 7 #MSTATUS_IL_SHIFT
-//slli  t4, t4, 1 #*2
-//add   t3, t3, t4
-//add   t3, t3, 2
-//csrw  mepc, t3
-//la    t4, DRAM_START
-//lw    t5, (t4)
-//add   t5, t5, 1
-//li    t6, 100
-//beq   t5, t6, exit
-//sw    t5, (t4)
-//mret
-//lui     t0,0x101
-//lui     t0,0x101
-//lui     t0,0x101
-//lui     t0,0x101
-//lui     t0,0x101
-//lui     t0,0x101
-//lui     t0,0x101
-//lui     t0,0x101
-//lui     t0,0x101
-
 .align 4
 exit:
   la  t3, end
@@ -118,45 +93,8 @@ end:
 
 .globl payload
 .align 4
-//  .section ".text"
+  .section ".text"
 payload:
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.rept 17000
-  .word 0xDEADBEEF
-//  .word 0xDEADBEAF
-//  .word 0xABABABAB
-.endr
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-.word 0x00000013
-
-.globl code
-.align 4
-.section ".text"
-.rept 17000
+.rept 1024
   .word 0xDEADBEEF
 .endr
