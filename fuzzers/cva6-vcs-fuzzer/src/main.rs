@@ -9,7 +9,6 @@ use std::path::PathBuf;
 #[cfg(feature = "tui")]
 use libafl::monitors::tui::TuiMonitor;
 
-// #[cfg(not(feature = "tui"))]
 use libafl::executors::command::CommandConfigurator;
 use libafl::state::HasMaxSize;
 use libafl::{
@@ -56,7 +55,6 @@ use std::io::Result;
 use std::path::Path;
 use std::rc::Rc;
 
-//use libpresifuzz_feedbacks::verdi_feedback::VerdiFeedback;
 
 use libpresifuzz_feedbacks::verdi_xml_feedback::VerdiFeedback;
 use libpresifuzz_observers::verdi_xml_observer::VerdiCoverageMetric;
@@ -76,8 +74,6 @@ use libpresifuzz_stages::sync::SyncFromDiskStage;
 
 mod differential;
 mod differential_feedback;
-//mod verdi_feedback;
-//use crate::verdi_feedback::VerdiFeedback;
 
 #[derive(Debug)]
 pub struct WorkDir(Option<TempDir>);
@@ -172,17 +168,9 @@ pub fn fuzz() {
         .try_into()
         .unwrap();
 
-    // allocate the shared memory provider for later use
-    #[cfg(target_vendoe = "apple")]
-    let mut shmem_provider = UnixShMemProvider::new().unwrap();
-    #[cfg(not(target_vendor = "apple"))]
-    let shmem_provider = StdShMemProvider::new().unwrap();
-    let mut shmem_provider_client = shmem_provider.clone();
-
     let mon = MultiMonitor::new(|s| println!("{s}"));
 
     let sync_dir = format!("{}/sync/", std::env::current_dir().unwrap().display());
-    println!("sync_dir: {}", sync_dir);
 
     let corpus_dir = format!("{}/seeds", env::current_dir().unwrap().display());
 
@@ -239,15 +227,13 @@ pub fn fuzz() {
             verdi_feedback_condition,
             verdi_feedback_tgl
         );
-        //verdi_feedback_fsm,
-        //let mut objective = feedback_not!(TransferredFeedback);
+
         let mut objective = ();
 
         // Instantiate State with feedback, objective, in/out corpus
         let mut state = StdState::new(
             StdRand::with_seed(current_nanos()),
             OnDiskCorpus::<BytesInput>::new(&PathBuf::from("./corpus")).unwrap(),
-            //InMemoryCorpus::<BytesInput>::new(),
             InMemoryCorpus::new(),
             &mut feedback,
             &mut objective,
@@ -259,7 +245,6 @@ pub fn fuzz() {
         let scheduler = QueueScheduler::new();
 
         // RISCV ISA mutator
-        //let mutator = StdISAScheduledMutator::with_max_stack_pow(riscv_mutations(), 2);
         let mutator = StdISAScheduledMutator::new(riscv_mutations());
 
         // Finally, instantiate the fuzzer
@@ -271,7 +256,6 @@ pub fn fuzz() {
             verdi_observer_branch,
             verdi_observer_condition
         ));
-        //verdi_observer_fsm,
 
         let corpus_dir = PathBuf::from(corpus_dir.to_string());
 
@@ -282,7 +266,6 @@ pub fn fuzz() {
 
         // Instantiate a mutational stage that will apply mutations to the selected testcase
         let sync_dir = PathBuf::from(sync_dir.to_string());
-        //let mut stages = tuple_list!(SyncFromDiskStage::new(sync_dir), StdMutationalStage::with_max_iterations(mutator, 1));
         let mut stages = tuple_list!(
             SyncFromDiskStage::new(sync_dir),
             StdMutationalStage::new(mutator)

@@ -16,6 +16,7 @@ target/
 build/
 fusesoc*
 output
+fuzzers/cva6-vcs-fuzzer/cva6/
 
 chipyard
 build.err
@@ -23,3 +24,6 @@ build.log
 
 # Mac files
 .DS_Store
+
+# Cargo.locks
+Cargo.lock
