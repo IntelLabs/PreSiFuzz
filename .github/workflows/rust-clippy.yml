@@ -12,6 +12,7 @@ on:
       - reopened
       - ready_for_review
       - edited
+      - synchronize
     branches:
       - main
   #schedule:
