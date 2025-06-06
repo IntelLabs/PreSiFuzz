@@ -12,6 +12,7 @@ on:
       - reopened
       - ready_for_review
       - edited
+      - synchronize
     branches:
       - main
   #schedule:
@@ -43,27 +44,27 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - name: rust-cargo
+      - name: rust-cargo for presifuzz libraries
         uses: actions-rs/cargo@v1.0.1
         with:
           toolchain: stable
           components: clippy
           command: build
-      - name: rust-cargo
+      - name: rust-cargo for secworks-vcs
         uses: actions-rs/cargo@v1.0.1
         with:
           toolchain: stable
           components: clippy
           command: build
           args: --manifest-path fuzzers/secworks-vcs/Cargo.toml
-      - name: Install required cargo
+      - name: Install required packages clippy-sarif sarif-fmt
         run: cargo install clippy-sarif sarif-fmt
-      - name: Run rust-clippy
+      - name: Run rust-clippy with test profile and all features enabled
         run: cargo clippy --all-features --profile=test --message-format=json | clippy-sarif | tee
           rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
       - name: Upload analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: rust-clippy-results.sarif
           wait-for-processing: true
