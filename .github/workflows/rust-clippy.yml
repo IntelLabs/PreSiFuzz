@@ -77,7 +77,7 @@ jobs:
           cargo test -- --format=json | cargo2junit > junit.xml
 
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: junit-report
           path: junit.xml
