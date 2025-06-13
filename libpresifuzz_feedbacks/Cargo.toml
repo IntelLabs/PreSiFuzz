@@ -39,4 +39,9 @@ intervaltree = { version = "0.2.7", default-features = false, features = ["serde
 libc = "0.2"
 fs_extra = "1.2.0"
 libpresifuzz_observers = {  path = "../libpresifuzz_observers"}
+rand = "0.8.5"
+tempfile = "3.9.0"
+flate2 = "1.0"
+quick-xml = "0.37.5"
+regex = "1"
 

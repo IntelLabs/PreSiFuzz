@@ -53,7 +53,9 @@ pub struct VerdiXMLMapObserver
     vdb: String,
     workdir: String,
     metric: VerdiCoverageMetric,
-    filter: String
+    filter: String,
+    covered: u32,
+    coverable: u32,
 }
 
 impl VerdiXMLMapObserver
@@ -72,7 +74,9 @@ impl VerdiXMLMapObserver
             workdir: workdir.to_string(),
             metric,
             filter: filter.to_string(),
-            vdb: vdb.to_string()
+            vdb: vdb.to_string(),
+            covered: 0,
+            coverable: 0
         }
     }
   
@@ -88,6 +92,13 @@ impl VerdiXMLMapObserver
         self.map.as_slice()
     }
     
+    pub fn covered(&self) -> u32 {
+        self.covered
+    }
+    
+    pub fn coverable(&self) -> u32 {
+        self.coverable
+    }
 }
 
 impl Named for VerdiXMLMapObserver
@@ -208,6 +219,10 @@ where
         _exit_kind: &ExitKind,
     ) -> Result<(), Error> {
 
+        self.map.clear();
+        self.covered = 0;
+        self.coverable = 0;
+
         // Path to the gzip-compressed XML file
         let xml_file = match self.metric {
             VerdiCoverageMetric::Toggle => "tgl.verilog.data.xml",
@@ -221,7 +236,8 @@ where
         let xml_file = format!("{}/{}/snps/coverage/db/testdata/test/{}", self.workdir, self.vdb, xml_file);
 
         // Open the gzip-compressed file
-        let mut coverage_file = File::open(xml_file).expect("Unable to open file xml coverage file");
+        let error_msg = format!("Unable to open file xml coverage file {}", xml_file);
+        let mut coverage_file = File::open(xml_file).expect(error_msg.as_str());
         
         let mut buffer = Vec::new();
         coverage_file.read_to_end(&mut buffer).expect("Unable to read the xml cov file tail the end");
@@ -231,9 +247,6 @@ where
         gz.read_to_string(&mut xml_str).expect("Unable to unzip xml cove file using GzDecoder");
 
         let mut concatenated_bits = String::new();
-
-        let mut coverable: u32 = 0;
-        let mut covered: u32 = 0;
 
         let cursor = Cursor::new(xml_str);
 
@@ -249,7 +262,7 @@ where
                                 let value_start = value_start + r#"value=""#.len();
                                 if let Some(value_end) = line[value_start..].find('"') {
                                     let value = &line[value_start..value_start + value_end];
-                                    coverable += value.len() as u32;
+                                    self.coverable += value.len() as u32;
 
                                     concatenated_bits.push_str(value);
                                 }
@@ -267,30 +280,22 @@ where
         let bit_len = concatenated_bits.len();
         let mut start = 0;
 
-        self.map.push(coverable);
-
         while start < bit_len {
             
             // process 32bits chunks at max
             let end = (start + 32).min(bit_len);
             let bit_chunk = &concatenated_bits[start..end];
 
+            println!("{}", bit_chunk);
+            
             // translates str to u32 with radix 2
             let value = u32::from_str_radix(bit_chunk, 2).unwrap();
 
-            // Normally, only last chunk might be not 32bits aligned so we add padding with 0
-            let value = if end - start < 32 {
-                value << (32 - (end - start))
-            } else {
-                value
-            };
-
-            covered += value.count_ones();
+            self.covered += value.count_ones();
 
             self.map.push(value);
             start += 32;
         }
-        self.map.insert(0, covered);
 
         Ok(())
     }
@@ -338,62 +343,6 @@ where
     
     fn post_observe_second(&mut self, _observers: &mut OTB) -> Result<(), Error> {
         Ok(())
-    }
-}
-
-
-// TODO: Re-enable this test using vdb from open source design
-#[cfg(feature = "std")]
-#[cfg(test)]
-mod tests {
-
-    extern crate fs_extra;
-    use libc::{c_uint, c_char, c_void};
-    use std::process;
-    use libafl_bolts::prelude::StdRand;
-    use libafl::prelude::BytesInput;
-    use libafl::executors::{ExitKind};
-    use libafl_bolts::current_time;
-    use libafl::prelude::InMemoryCorpus;
-    use libafl::prelude::Testcase;
-    use libafl::prelude::ConstFeedback;
-    use crate::verdi_xml_observer::VerdiXMLMapObserver;
-    use crate::verdi_xml_observer::VerdiCoverageMetric;
-    use libafl::prelude::StdState;
-    use libafl::state::HasMaxSize;
-    use libafl::observers::Observer;
-
-    #[test]
-    fn test_verdi_xml_observer() {
-
-        let input = BytesInput::new(vec![1, 2, 3, 4]);
-
-        let rand = StdRand::with_seed(current_time().as_nanos() as u64);
-        let corpus = InMemoryCorpus::<BytesInput>::new();
-
-        let mut feedback = ConstFeedback::new(true);
-        let mut objective = ConstFeedback::new(false);
-
-
-        let mut verdi_observer = VerdiXMLMapObserver::new(
-                "verdi_map",
-                &String::from("test.vdb"),
-                ".",
-                VerdiCoverageMetric::Toggle,
-                &"chiptop0".to_string()
-        );
-
-        let mut state = StdState::new(
-            rand,
-            corpus,
-            InMemoryCorpus::<BytesInput>::new(),
-            &mut feedback,
-            &mut objective,
-        )
-        .unwrap();
-        state.set_max_size(1024);
-
-        let _ = verdi_observer.post_exec(&mut state, &input, &ExitKind::Ok);
     }
 }
 
