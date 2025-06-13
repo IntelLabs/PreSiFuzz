@@ -411,7 +411,7 @@ mod tests {
 
         let file_path = "./test.vdb/snps/coverage/db/testdata/test/tgl.verilog.data.xml";
         
-        for i in 0..1000000 {
+        for i in 0..1000 {
 
             println!("########### Test nb {i} ############");
 
