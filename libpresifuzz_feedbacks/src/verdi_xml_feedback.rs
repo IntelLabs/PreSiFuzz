@@ -58,10 +58,10 @@ impl VerdiFeedback
         }
 
         // count the bits that are set in the observer map but not in the history map
-        return if self.history.iter()
+        return self.history.iter()
             .zip(o_map.iter())
             .map(|(&x, &y)| ((!x) & y).count_ones())
-            .sum::<u32>() == 0 { false } else { true };
+            .sum::<u32>() != 0;
     }
 
     fn update_history_map(&mut self, o_map: &[u32], capacity: usize) -> (u32, u32) {
