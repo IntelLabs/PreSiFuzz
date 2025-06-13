@@ -74,7 +74,7 @@ jobs:
 
       - name: Run tests and convert to JUnit XML
         run: |
-          cargo +nightly test -- --format=json | cargo2junit > junit.xml
+          cargo +nightly test -- -Z unstable-options --format=json | cargo2junit > junit.xml
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
