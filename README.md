@@ -53,8 +53,10 @@ You can quickly get it running using the following commands:
 ```
 cd secworks-vcs
 cargo build
-./target/debug/secworks-vcs
+AFL_LAUNCHER_CLIENT=1 ./target/debug/secworks-vcs
 ```
+*Note: AFL_LAUNCHER_CLIENT is an environment variable required to start a unique fuzzer instance.
+Starting the fuzzer with this environment variable undefined starts a monitor only.
 
 # Example targets
 
