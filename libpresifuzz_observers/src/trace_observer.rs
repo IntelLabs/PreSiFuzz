@@ -148,15 +148,23 @@ impl ExecTraceParser for SpikeExecTrace
         
         let file = File::open(spike_file).expect("Unable to open spike trace file");
         let reader = io::BufReader::new(file);
-
-        let spike_store_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+mem\s+0x(\w+)\s+0x(\w+)").unwrap();
-        let spike_rest_commit_re = Regex::new(r"core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+(\w+)\s+0x(\w+)(\s+(\w+)\s+0x(\w+))?").unwrap();
+        let spike_store_commit_re = Regex::new(r"^core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+mem\s+0x(\w+)\s+0x(\w+)$").unwrap();
+        let spike_jmps_re = Regex::new(r"^core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)$").unwrap();
+        let spike_rest_commit_re = Regex::new(r"^core\s+\d+: \d+ 0x(\w+) \(0x(\w+)\)\s+(\w+)\s+0x(\w+)(\s+(\w+)\s+0x(\w+))?$").unwrap();
         for line in reader.lines() {
             if let Ok(log_line) = &line {
                 if let Some(caps) = spike_store_commit_re.captures(log_line) {
-                    let ops = vec![
+                    let ops: Vec<OpLog> = vec![
                         OpLog::MemOp(MemOp{op_type: OpType::Write, address: u64::from_str_radix(&caps[3], 16).unwrap(), value: u64::from_str_radix(&caps[4], 16).unwrap()})
                     ];
+                    trace.push(TraceLog {
+                        pc: u64::from_str_radix(&caps[1], 16).unwrap(),
+                        inst: u64::from_str_radix(&caps[2], 16).unwrap(),
+                        ops,
+                    });
+                }
+                else if let Some(caps) = spike_jmps_re.captures(log_line) {
+                    let ops: Vec<OpLog> = vec![];
                     trace.push(TraceLog {
                         pc: u64::from_str_radix(&caps[1], 16).unwrap(),
                         inst: u64::from_str_radix(&caps[2], 16).unwrap(),
@@ -229,7 +237,8 @@ mod tests {
         state.set_max_size(1024);
 
         let _ = spike_trace_observer.post_exec(&mut state, &input, &ExitKind::Ok);
-        println!("{:?}", spike_trace_observer.trace.len())
+        //TODO: For now we do not consider exceptions, so only 147
+        assert!(spike_trace_observer.trace.len() == 147);
     }
 }
 

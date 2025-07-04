@@ -66,14 +66,14 @@ impl VerdiFeedback
 
     fn update_history_map(&mut self, o_map: &[u32], capacity: usize) -> (u32, u32) {
 
-        let coverable = (self.history.len() * 32) as u32; 
-        let covered = self.history.iter().map(|&x| x.count_ones()).sum();
-
         // update history so that it includes all bits that are set in o_map but not currently set in history
         assert_eq!(self.history.len(), o_map.len());
         for (x, &y) in self.history.iter_mut().zip(o_map.iter()) {
             *x |= y;
         }
+
+        let coverable = (self.history.len() * 32) as u32;
+        let covered = self.history.iter().map(|&x| x.count_ones()).sum();
 
         return (covered, coverable);
     }
@@ -463,7 +463,7 @@ mod tests {
             // run the feedback on initial map
             let capacity = verdi_observer.cnt();
             println!("Capacity is {} or {}", capacity, verdi_observer.my_map().len());
-          
+
             let o_map = verdi_observer.my_map().as_slice();
             let is_interesting = feedback.compare_coverage_map(o_map, capacity);
 
@@ -485,8 +485,32 @@ mod tests {
             let is_interesting = feedback.compare_coverage_map(o_map, capacity);
 
             if is_interesting != is_interesting_oracle {
+
+                println!("Test Fail @ new coverage bits!");
+                for (_k, item) in o_map.iter().enumerate().filter(|&(_k,_)| _k>=2).take(capacity) {
+                    println!("{:#034b}", o_map[_k]);
+                }
+                assert!(is_interesting == is_interesting_oracle);
+            }
+
+            let (covered, coverable) = feedback.update_history_map(o_map, capacity);
+
+            // flip no bits
+            let is_interesting_oracle = false;
+
+            // run the observer on the bits flipped map
+            let _ = verdi_observer.post_exec(&mut state, &input, &ExitKind::Ok);
+
+            // run the feedback on the bits flipped map
+            let capacity = verdi_observer.cnt();
+            println!("Capacity is {} or {}", capacity, verdi_observer.my_map().len());
+
+            let o_map = verdi_observer.my_map().as_slice();
+            let is_interesting = feedback.compare_coverage_map(o_map, capacity);
+
+            if is_interesting != is_interesting_oracle {
         
-            println!("Test Fail!");
+                println!("Test Fail @ no new coverage!");
                 for (_k, item) in o_map.iter().enumerate().filter(|&(_k,_)| _k>=2).take(capacity) {
                     println!("{:#034b}", o_map[_k]);
                 }
