@@ -1,0 +1,43 @@
+[package]
+name = "cva6_vcs_processorfuzz"
+version = "0.0.1"
+edition = "2021"
+authors = ["Nassim Corteggiani <nassim.corteggiani@intel.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+debug = []
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = 3
+debug = false
+
+[profile.dev]
+opt-level = 0
+strip = "debuginfo"
+lto = false
+debug = true
+panic = "unwind"
+
+[dependencies]
+libpresifuzz_riscv = { path = "../../libpresifuzz_riscv"}
+libpresifuzz_ec = { path = "../../libpresifuzz_ec", features=["debug"]}
+libpresifuzz_mutators = {path="../../libpresifuzz_mutators"}
+libpresifuzz_observers = { path = "../../libpresifuzz_observers"}
+libpresifuzz_feedbacks = { path = "../../libpresifuzz_feedbacks"}
+libpresifuzz_stages = { path = "../../libpresifuzz_stages"}
+libafl = { version = "0.11.2"}
+libafl_bolts = { version = "0.11.2"}
+yaml-rust = "0.4.5"
+rand = "0.8.5"
+serde_yaml = "0.9.27"
+tempdir = "0.3.7"
+serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
+clap = { version = "3.2", features = ["default"] }
+fs_extra = "1.2.0"
+wait-timeout = "0.1.5"
+color-print = "0.3.6"

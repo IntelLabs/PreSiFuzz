@@ -17,8 +17,10 @@ use libafl::{
 
 use libafl_bolts::Named;
 
-use libpresifuzz_observers::trace_observer::{ExecTrace, ExecTraceParser};
+use libpresifuzz_observers::trace_observer::{ExecTraceObserver, ExecTraceParser};
 
+use libpresifuzz_observers::trace_observer::OpLog::MemOp;
+use libpresifuzz_observers::trace_observer::OpLog::RegOp;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct DifferentialFeedback<R,C>
@@ -49,12 +51,36 @@ where
         EM: EventFirer<State = S>,
         OT: ObserversTuple<S>
     {
-        let ref_observer = observers.match_name::<ExecTrace<R>>(&self.ref_observer_name).unwrap();
-        let core_observer = observers.match_name::<ExecTrace<C>>(&self.core_observer_name).unwrap();
+        let ref_observer = observers.match_name::<ExecTraceObserver<R>>(&self.ref_observer_name).unwrap();
+        let core_observer = observers.match_name::<ExecTraceObserver<C>>(&self.core_observer_name).unwrap();
 
         if core_observer.cnt() == ref_observer.cnt() {
            return Ok(false);
         }
+
+        for k in 0..ref_observer.cnt() {
+            if ref_observer.trace()[k].pc != core_observer.trace()[k].pc{
+                return Ok(false);
+            }
+            
+            if ref_observer.trace()[k].inst != core_observer.trace()[k].inst{
+                return Ok(false);
+            }
+
+            if ref_observer.trace()[k].ops.len() != core_observer.trace()[k].ops.len() {
+                return Ok(false);
+            }
+
+            for j in 0..ref_observer.trace()[k].ops.len() {
+                let ref_op = &ref_observer.trace()[k].ops[j];
+                let core_op = &core_observer.trace()[k].ops[j];
+
+                if *ref_op != *core_op {
+                    return Ok(false);
+                }
+           }
+        }
+
         Ok(true)
     }
 }

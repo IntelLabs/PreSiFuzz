@@ -1,0 +1,294 @@
+diff --git a/Makefile b/Makefile
+index a8f7fdcb..0d13fc1a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -303,7 +303,7 @@ vcs_build: $(dpi-library)/ariane_dpi.so
+ 	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog -assert svaext +define+$(defines) +incdir+$(VCS_HOME)/etc/uvm/src $(VCS_HOME)/etc/uvm/src/uvm_pkg.sv  $(filter %.sv,$(src)) $(list_incdir) &&\
+ 	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog -ntb_opts uvm-1.2 &&\
+ 	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog -ntb_opts uvm-1.2 $(tbs) +define+$(defines) $(list_incdir) &&\
+-	vcs $(if $(VERDI), -kdb -debug_access+all -lca,) -full64 -timescale=1ns/1ns -ntb_opts uvm-1.2 work.ariane_tb -error="IWNF"
++	vcs $(if $(VERDI), -kdb -debug_access+all -lca,) -lca -cm line+cond+fsm+tgl+path+branch+assert -cm_dir Coverage.vdb -full64 -timescale=1ns/1ns -ntb_opts uvm-1.2 work.ariane_tb -error="IWNF"
+ 
+ vcs: vcs_build
+ 	cd $(vcs-library) && \
+diff --git a/ci/install-fesvr.sh b/ci/install-fesvr.sh
+index 7401457e..7bdaab70 100755
+--- a/ci/install-fesvr.sh
++++ b/ci/install-fesvr.sh
+@@ -1,28 +1,29 @@
+ #!/bin/bash
+ set -e
+ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+-VERSION="35d50bc40e59ea1d5566fbd3d9226023821b1bb6"
++VERSION="34d39b91463228da423a1f27ba1ac417c26ef786"
+ 
+-cd $ROOT/tmp
++#cd $ROOT/tmp
+ 
+ if [ -z ${NUM_JOBS} ]; then
+     NUM_JOBS=1
+ fi
+ 
+-if [ ! -e "${RISCV}/bin/spike"  ]; then
++#if [ ! -e "${RISCV}/bin/spike"  ]; then
+     echo "Installing fesvr"
+-    git clone https://github.com/riscv/riscv-isa-sim.git
+-    cd riscv-isa-sim
+-    git checkout $VERSION
++#    git clone https://github.com/riscv/riscv-isa-sim.git
++#    cd riscv-isa-sim
++#    git checkout $VERSION
++    cd $ROOT/verif/core-v-verif/vendor/riscv/riscv-isa-sim/
+     mkdir -p build
+     cd build
+     ../configure --prefix="$RISCV/"
+-    make install-config-hdrs install-hdrs libfesvr.a
++    make install-config-hdrs install-hdrs libfesvr.so
+     mkdir -p $RISCV/lib
+-    cp libfesvr.a $RISCV/lib
+-else
+-    echo "Using fesvr from cached directory."
+-fi
++    cp libfesvr.so $RISCV/lib
++#else
++#    echo "Using fesvr from cached directory."
++#fi
+ 
+ 
+ 
+diff --git a/ci/install-spike.sh b/ci/install-spike.sh
+index 16a15581..95216878 100755
+--- a/ci/install-spike.sh
++++ b/ci/install-spike.sh
+@@ -9,7 +9,7 @@ if [ -z ${NUM_JOBS} ]; then
+     NUM_JOBS=1
+ fi
+ 
+-if [ ! -e "${RISCV}/bin/spike"  ]; then
++#if [ ! -e "${RISCV}/bin/spike"  ]; then
+     echo "Installing Spike"
+     git clone https://github.com/riscv/riscv-isa-sim.git
+     cd riscv-isa-sim
+@@ -19,9 +19,9 @@ if [ ! -e "${RISCV}/bin/spike"  ]; then
+     ../configure --prefix="$RISCV/"
+     make -j${NUM_JOBS}
+     make install
+-else
+-    echo "Using Spike from cached directory."
+-fi
++#else
++#    echo "Using Spike from cached directory."
++#fi
+ 
+ 
+ 
+diff --git a/core/cache_subsystem/hpdcache b/core/cache_subsystem/hpdcache
+index 645e4222..c9956896 160000
+--- a/core/cache_subsystem/hpdcache
++++ b/core/cache_subsystem/hpdcache
+@@ -1 +1 @@
+-Subproject commit 645e4222c3d23fbedb5b0fec1922f72fd692a40a
++Subproject commit c9956896659489c23dd6d85ce692ab940c74a7e2
+diff --git a/verif/core-v-verif b/verif/core-v-verif
+index 4f9dd2af..34d39b91 160000
+--- a/verif/core-v-verif
++++ b/verif/core-v-verif
+@@ -1 +1 @@
+-Subproject commit 4f9dd2af648c4cb252d88972812ec16d86a7d717
++Subproject commit 34d39b91463228da423a1f27ba1ac417c26ef786
+diff --git a/verif/sim/Makefile b/verif/sim/Makefile
+index d10a84d8..dde958fd 100644
+--- a/verif/sim/Makefile
++++ b/verif/sim/Makefile
+@@ -105,8 +105,8 @@ endif
+ cov-exclude-list ?= $(root-dir)/cov-exclude-mod.lst
+ 
+ ifdef cov
+-	cov-comp-opt = -cm line+cond+tgl -cm_hier $(cov-exclude-list)
+-	cov-run-opt  = -cm line+cond+tgl -cm_name $(TESTNAME)
++	cov-comp-opt = -cm line+cond+tgl+branch -cm_hier $(cov-exclude-list)
++	cov-run-opt  = -cm line+cond+tgl+branch -cm_name $(TESTNAME)
+ else
+ 	cov-comp-opt =
+ 	cov-run-opt  =
+@@ -130,16 +130,16 @@ spike:
+ vcs-testharness:
+ 	make -C $(path_var) work-dpi/ariane_dpi.so
+ 	make -C $(path_var) vcs_build target=$(target) defines=$(subst +define+,,$(isscomp_opts))$(if $(spike-tandem),SPIKE_TANDEM=1)
+-	$(path_var)/work-vcs/simv $(if $(VERDI), -verdi -do $(path_var)/util/init_testharness.do,) +permissive \
+-	  +tohost_addr=$(shell $$RISCV/bin/${CV_SW_PREFIX}nm -B $(elf) | grep -w tohost | cut -d' ' -f1) \
+-	  +elf_file=$(elf) +permissive-off ++$(elf) $(issrun_opts)  \
+-	  $(if $(spike-tandem),-sv_lib $(SPIKE_INSTALL_DIR)/lib/libdisasm) \
+-	  $(if $(spike-tandem),-sv_lib $(SPIKE_INSTALL_DIR)/lib/libriscv) \
+-	  -sv_lib $(SPIKE_INSTALL_DIR)/lib/libfesvr
++	#$(path_var)/work-vcs/simv $(if $(VERDI), -verdi -do $(path_var)/util/init_testharness.do,) +permissive \
++	#  +tohost_addr=$(shell $$RISCV/bin/${CV_SW_PREFIX}nm -B $(elf) | grep -w tohost | cut -d' ' -f1) \
++	#  +elf_file=$(elf) +permissive-off ++$(elf) $(issrun_opts)  \
++	#  $(if $(spike-tandem),-sv_lib $(SPIKE_INSTALL_DIR)/lib/libdisasm) \
++	#  $(if $(spike-tandem),-sv_lib $(SPIKE_INSTALL_DIR)/lib/libriscv) \
++	#  -sv_lib $(SPIKE_INSTALL_DIR)/lib/libfesvr
+ 	# TODO: Add support for waveform collection.
+ 	# Generate disassembled log.
+-	$(tool_path)/spike-dasm --isa=$(variant) < ./trace_rvfi_hart_00.dasm > $(log)
+-	grep $(isspostrun_opts) ./trace_rvfi_hart_00.dasm
++	#$(tool_path)/spike-dasm --isa=$(variant) < ./trace_rvfi_hart_00.dasm > $(log)
++	#grep $(isspostrun_opts) ./trace_rvfi_hart_00.dasm
+ 
+ veri-testharness:
+ 	make -C $(path_var) verilate verilator="verilator --no-timing" target=$(target) defines=$(subst +define+,,$(isscomp_opts))
+diff --git a/verif/sim/cva6.py b/verif/sim/cva6.py
+index 3940600c..14b34583 100644
+--- a/verif/sim/cva6.py
++++ b/verif/sim/cva6.py
+@@ -1127,7 +1127,7 @@ def main():
+     setup_logging(args.verbose)
+     logg = logging.getLogger()
+ 
+-    check_tools_version()
++    #  check_tools_version()
+ 
+     # create file handler which logs even debug messages13.1.1
+     fh = logging.FileHandler('logfile.log')
+diff --git a/verif/tests/custom/hello_world/custom_test_template.S b/verif/tests/custom/hello_world/custom_test_template.S
+index 9636395a..264e0b7e 100644
+--- a/verif/tests/custom/hello_world/custom_test_template.S
++++ b/verif/tests/custom/hello_world/custom_test_template.S
+@@ -12,22 +12,90 @@
+ #-----------------------------------------------------------------------------
+ #
+ 
++.equ DRAM_START,            0x80000000
++
+   .globl main
+ main:
+-# core of the test
+-# (example of) final self-check test
+-  li a0, 0xCAFE;
+-  li a1, 0xCAFE;
+-  xor a2, a0, a1;
+-  beqz a2, pass;
+-
+-fail:
+-  # Failure post-processing (messages, ecall setup etc.)
+-  li a0, 0x0;
+-  jal exit;
+-
+-pass:
+-  # Success post-processing (messages, ecall setup etc.)
+-  li a0, 0x0;
+-  jal exit;
++  la  t0, exception_entry
++  csrw    mtvec,t0
++  la      t4, DRAM_START
++  sw      x0, (t4)
++  jal     x0, payload
++
++.p2align 4
++exception_entry:
++        csrr t0, mepc
++        lb t1, 0(t0)
++        li a0, 0x3
++        and t1, t1, a0
++        /* Increment mepc by 2 or 4 depending on whether the instruction at mepc
++           is compressed or not.  */
++        bne t1, a0, end_handler_incr_mepc2
++        addi t0, t0, 2
++end_handler_incr_mepc2:
++        addi t0, t0, 2
++        csrw mepc, t0
++end_handler_ret:
++        lw ra, 0(sp)
++        lw a0, 4(sp)
++        lw a1, 8(sp)
++        lw a2, 12(sp)
++        lw a3, 16(sp)
++        lw a4, 20(sp)
++        lw a5, 24(sp)
++        lw a6, 28(sp)
++        lw a7, 32(sp)
++        lw t0, 36(sp)
++        lw t1, 40(sp)
++        lw t2, 44(sp)
++        lw t3, 48(sp)
++        lw t4, 52(sp)
++        lw t5, 56(sp)
++        lw t6, 60(sp)
++        addi sp,sp,64
++        mret
++
++
++
++//  csrr  t3, mepc
++//  csrr  t4, 0xfC2 #CSR_MSTATUS_REG_ADDR
++//  andi  t4, t4, 0x00000080 #MSTATUS_IL_MASK
++//  srli  t4, t4, 7 #MSTATUS_IL_SHIFT
++//  slli  t4, t4, 1 #*2
++//  add   t3, t3, t4
++//  add   t3, t3, 2
++//  csrw  mepc, t3
++//  la    t4, DRAM_START
++//  lw    t5, (t4)
++//  add   t5, t5, 1
++//  li    t6, 100
++//  beq   t5, t6, exit
++//  sw    t5, (t4)
++//  mret
++//  lui     t0,0x101
++//  lui     t0,0x101
++//  lui     t0,0x101
++//  lui     t0,0x101
++//  lui     t0,0x101
++//  lui     t0,0x101
++//  lui     t0,0x101
++//  lui     t0,0x101
++//  lui     t0,0x101
++
++.p2align 4
++exit:
++  la  t3, end
++  csrw  sepc, t3
++  mret
++.p2align 4
++end:
++  jal x0, end
++
++.p2align 4
++payload:
++.rept 72948
++  .word 0xDEADBEEF
++//  .word 0xDEADBEAF
++//  .word 0xABABABAB
++.endr
+ 
+diff --git a/verif/tests/custom/hello_world/hello_world.c b/verif/tests/custom/hello_world/hello_world.c
+index d59802c2..ef3385e0 100644
+--- a/verif/tests/custom/hello_world/hello_world.c
++++ b/verif/tests/custom/hello_world/hello_world.c
+@@ -17,16 +17,17 @@
+ */
+ 
+ #include <stdint.h>
+-#include <stdio.h>
++// #include <stdio.h>
+ 
+ int main(int argc, char* arg[]) {
+-	
+-	printf("%d: Hello World !", 0);
+-	
+-	int a = 0;
+-	for (int i = 0; i < 5; i++)
+-	{
+-		a += i;
+-	}
+-	return 0;
++
++    int a = 0, b = 1, n=100, c, i;
++    for (i = 2; i <= n; i++) {
++        c = a + b;
++        a = b;
++        b = c;
++    }
++
++    return 0;
+ }
++
